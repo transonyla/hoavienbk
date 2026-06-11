@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌺 Hoa Viên</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --forest:#1a3a22;--forest2:#2d5438;--leaf:#4a8c5c;--mint:#c8e6c9;--sage:#e8f5e9;
+  --petal:#e91e8c;--petal2:#f06292;--blush:#fce4ec;
+  --ink:#0d1f12;--mist:#6b8f71;--haze:#b2d8b8;--paper:#f5faf6;--white:#ffffff;
+  --bd:#d4e8d6;--r:14px;--rp:999px;
+  --sh:0 2px 12px rgba(26,58,34,.08);--shd:0 8px 32px rgba(26,58,34,.14);
+  --clan:#7c3aed;--clan2:#ede9fe;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Be Vietnam Pro',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;font-size:15px;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--haze);border-radius:4px}
+
+.bar{background:var(--forest);height:56px;display:flex;align-items:center;padding:0 16px;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.bar-logo{font-size:1.05rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;letter-spacing:-.01em}
+.bar-sp{flex:1}
+.bar-sync{display:flex;align-items:center;gap:5px;font-size:.72rem;color:#a5d6a7}
+.bar-user{display:flex;align-items:center;gap:6px;font-size:.76rem;color:#a5d6a7;cursor:pointer;padding:4px 9px;border-radius:var(--rp);border:1px solid rgba(165,214,167,.3);transition:background .13s}
+.bar-user:hover{background:rgba(255,255,255,.08)}
+.pulse{width:8px;height:8px;border-radius:50%;background:#4caf50;flex-shrink:0;transition:background .3s}
+.pulse.loading{background:#90caf9;animation:blink 1s infinite}
+.pulse.err{background:#ef5350}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+.wrap{max-width:900px;margin:0 auto;padding:20px 14px 90px}
+
+.nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px}
+.nvb{padding:8px 15px;border-radius:var(--rp);font-size:.8rem;font-weight:700;border:1.5px solid var(--bd);background:var(--white);color:var(--mist);cursor:pointer;transition:all .14s;white-space:nowrap;font-family:inherit}
+.nvb:hover{color:var(--forest);border-color:var(--leaf)}
+.nvb.on{background:var(--forest);color:#fff;border-color:var(--forest)}
+
+.card{background:var(--white);border-radius:var(--r);border:1px solid var(--bd);box-shadow:var(--sh);padding:18px}
+.card+.card{margin-top:14px}
+.card-title{font-size:.88rem;font-weight:800;color:var(--forest2);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.fc{background:var(--white);border-radius:var(--r);border:1.5px solid var(--bd);overflow:hidden;transition:transform .14s,box-shadow .14s;position:relative}
+.fc:hover{transform:translateY(-2px);box-shadow:var(--shd)}
+.fc-img{width:100%;aspect-ratio:1;overflow:hidden;background:linear-gradient(135deg,var(--sage),var(--blush));position:relative;display:flex;align-items:center;justify-content:center}
+.fc-img img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.fc:hover .fc-img img{transform:scale(1.07)}
+.fc-letter{font-size:2.4rem;font-weight:800;line-height:1}
+.fc-body{padding:10px 11px 12px}
+.fc-name{font-size:.82rem;font-weight:700;line-height:1.35;margin-bottom:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fc-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:var(--rp);font-size:.66rem;font-weight:700}
+.fc-dot{width:6px;height:6px;border-radius:50%}
+.fc-owns{font-size:.69rem;color:var(--mist);margin-top:4px;line-height:1.5}
+
+.tc{cursor:pointer;user-select:none}
+.tc.ticked{border-color:var(--petal);box-shadow:0 0 0 2px var(--blush)}
+.chk{position:absolute;top:7px;right:7px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.75);border:2px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:13px;backdrop-filter:blur(3px);transition:all .13s}
+.tc.ticked .chk{background:var(--petal);border-color:var(--petal);color:#fff}
+
+/* clan badges on flower cards */
+.fc-clans{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.clan-tag{font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:var(--rp);background:var(--clan2);color:var(--clan)}
+
+/* ─── FLOWER ZOOM OVERLAY ───────────────────────────────────────────────── */
+.fc.zoomable{cursor:zoom-in}
+.zoom-bg{position:fixed;inset:0;background:rgba(13,31,18,0);z-index:500;display:flex;align-items:center;justify-content:center;padding:28px;transition:background .32s cubic-bezier(.22,1,.36,1);pointer-events:none}
+.zoom-bg.on{background:rgba(13,31,18,.55);pointer-events:auto}
+.zoom-card{background:var(--white);border-radius:18px;box-shadow:var(--shd);overflow:hidden;width:min(420px,100%);max-height:calc(100vh - 56px);display:flex;flex-direction:column;transform:scale(.4);opacity:0;transition:transform .38s cubic-bezier(.22,1,.36,1),opacity .28s ease;cursor:zoom-out;position:relative}
+.zoom-bg.on .zoom-card{transform:scale(1);opacity:1}
+.zoom-img{width:100%;aspect-ratio:1;overflow:hidden;background:linear-gradient(135deg,var(--sage),var(--blush));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.zoom-img img{width:100%;height:100%;object-fit:cover}
+.zoom-letter{font-size:6rem;font-weight:800;line-height:1}
+.zoom-body{padding:18px 20px 22px;overflow-y:auto}
+.zoom-name{font-size:1.15rem;font-weight:800;margin-bottom:8px;line-height:1.35}
+.zoom-owners{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.zoom-owners .fc-clans{margin-top:0}
+.zoom-owners .clan-tag{font-size:.74rem;padding:4px 10px}
+.zoom-close{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.85);border:none;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:var(--ink);backdrop-filter:blur(3px);z-index:2;transition:background .12s}
+.zoom-close:hover{background:#fff}
+
+/* ─── MEMBER FLOWERS POPUP ───────────────────────────────────────────────── */
+.mf-bg{position:fixed;inset:0;background:rgba(13,31,18,0);z-index:500;display:flex;align-items:center;justify-content:center;padding:18px;transition:background .28s ease;pointer-events:none}
+.mf-bg.on{background:rgba(13,31,18,.5);pointer-events:auto}
+.mf-card{background:var(--white);border-radius:18px;box-shadow:var(--shd);width:min(560px,100%);max-height:calc(100vh - 56px);display:flex;flex-direction:column;transform:translateY(24px) scale(.96);opacity:0;transition:transform .32s cubic-bezier(.22,1,.36,1),opacity .24s ease}
+.mf-bg.on .mf-card{transform:none;opacity:1}
+.mf-head{padding:18px 20px 12px;border-bottom:1px solid var(--bd);flex-shrink:0;position:relative}
+.mf-title{font-size:1.05rem;font-weight:800;color:var(--forest)}
+.mf-sub{font-size:.78rem;color:var(--mist);margin-top:3px}
+.mf-close{position:absolute;top:12px;right:14px;width:32px;height:32px;border-radius:50%;background:var(--sage);border:none;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;color:var(--forest2);transition:background .12s}
+.mf-close:hover{background:var(--mint)}
+.mf-body{padding:14px 20px 20px;overflow-y:auto}
+.mf-grp{margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+.mf-grp:first-child{margin-top:0}
+.mf-grp-bar{width:3px;height:16px;border-radius:2px;flex-shrink:0}
+.mf-grp h3{font-size:.85rem;font-weight:800}
+.mf-grp-cnt{font-size:.66rem;color:var(--mist);background:var(--sage);border:1px solid var(--bd);padding:1px 7px;border-radius:var(--rp);font-weight:600}
+.mf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:9px}
+.mf-fc{border-radius:11px;overflow:hidden;border:1.5px solid var(--bd)}
+.mf-fc-img{width:100%;aspect-ratio:1;background:linear-gradient(135deg,var(--sage),var(--blush));display:flex;align-items:center;justify-content:center;overflow:hidden}
+.mf-fc-img img{width:100%;height:100%;object-fit:cover}
+.mf-fc-letter{font-size:1.6rem;font-weight:800}
+.mf-fc-name{font-size:.7rem;font-weight:700;padding:6px 7px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mb-name-link{cursor:pointer;transition:color .12s}
+.mb-name-link:hover{color:var(--leaf);text-decoration:underline}
+
+.grp{margin:26px 0 13px;display:flex;align-items:center;gap:9px}
+.grp-bar{width:4px;height:20px;border-radius:3px;background:var(--petal);flex-shrink:0}
+.grp h2{font-size:.98rem;font-weight:800}
+.grp-cnt{font-size:.7rem;color:var(--mist);background:var(--sage);border:1px solid var(--bd);padding:2px 8px;border-radius:var(--rp);font-weight:600}
+
+.fg-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.fg-col{display:flex;flex-direction:column;gap:5px}
+.fl{font-size:.76rem;font-weight:700;color:var(--forest2)}
+.fi{padding:9px 12px;border-radius:9px;border:1.5px solid var(--bd);background:var(--white);font-family:inherit;font-size:.87rem;color:var(--ink);outline:none;transition:border-color .14s;width:100%}
+.fi:focus{border-color:var(--leaf)}
+.fi::placeholder{color:var(--haze)}
+select.fi{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b8f71' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+
+.sbar{position:relative;margin-bottom:16px}
+.sbar input{padding-left:38px}
+.sico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--haze);pointer-events:none;font-size:14px}
+
+.cfbar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:18px}
+.ctab{padding:4px 12px;border-radius:var(--rp);font-size:.74rem;font-weight:700;border:1.5px solid var(--bd);background:var(--white);color:var(--mist);cursor:pointer;transition:all .12s}
+.ctab:hover{border-color:var(--mist)}
+.ctab.on{border-width:2px;color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;gap:5px;padding:9px 17px;border-radius:9px;font-family:inherit;font-size:.84rem;font-weight:700;cursor:pointer;border:none;transition:all .13s}
+.btn-g{background:var(--forest2);color:#fff}.btn-g:hover{background:var(--leaf)}
+.btn-p{background:var(--petal);color:#fff}.btn-p:hover{background:#c2185b}
+.btn-v{background:var(--clan);color:#fff}.btn-v:hover{background:#5b21b6}
+.btn-o{background:transparent;color:var(--forest2);border:1.5px solid var(--bd)}.btn-o:hover{border-color:var(--mist)}
+.btn-r{background:transparent;color:#d32f2f;border:1.5px solid #ffcdd2}.btn-r:hover{background:#ffebee}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-sm{padding:6px 11px;font-size:.77rem}
+.btn-xs{padding:4px 9px;font-size:.73rem}
+.irow{display:flex;gap:8px;align-items:flex-end}
+.irow .fi{flex:1}
+
+.mtbl{width:100%;border-collapse:collapse}
+.mtbl th{text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mist);padding:9px 12px;border-bottom:2px solid var(--bd)}
+.mtbl td{padding:12px 12px;border-bottom:1px solid var(--sage);font-size:.86rem;vertical-align:middle}
+.mtbl tr:last-child td{border-bottom:none}
+.mtbl tr:hover td{background:var(--sage)}
+.mbar-w{display:flex;align-items:center;gap:8px;min-width:90px}
+.mbar{flex:1;height:5px;border-radius:3px;background:var(--sage);overflow:hidden}
+.mbar-f{height:100%;border-radius:3px;background:var(--petal);transition:width .4s}
+.mlbl{font-size:.74rem;font-weight:700;color:var(--petal);white-space:nowrap}
+.ibtn{background:none;border:none;cursor:pointer;padding:4px 7px;border-radius:7px;font-size:.88rem;transition:background .12s;color:var(--mist)}
+.ibtn:hover{background:var(--sage)}
+.ibtn.del:hover{background:#ffebee;color:#d32f2f}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:20px}
+.sc{background:var(--white);border-radius:var(--r);border:1px solid var(--bd);padding:13px 14px}
+.sv{font-size:1.55rem;font-weight:800;line-height:1}
+.sl{font-size:.67rem;font-weight:700;color:var(--mist);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+
+.savebar{position:fixed;bottom:0;left:0;right:0;background:var(--forest);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;z-index:150;box-shadow:0 -4px 20px rgba(0,0,0,.2);transform:translateY(100%);transition:transform .22s}
+.savebar.on{transform:none}
+
+.toasts{position:fixed;top:64px;right:12px;z-index:999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{background:var(--forest);color:#fff;padding:10px 15px;border-radius:9px;font-size:.81rem;font-weight:600;box-shadow:0 4px 18px rgba(0,0,0,.2);animation:tin .22s ease,tout .28s ease 2.2s forwards;pointer-events:auto;max-width:280px}
+.toast.ok{border-left:3px solid #4caf50}
+.toast.er{border-left:3px solid #ef5350}
+.toast.wn{border-left:3px solid #90caf9}
+@keyframes tin{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@keyframes tout{from{opacity:1}to{opacity:0;transform:translateX(16px)}}
+
+.mbg{position:fixed;inset:0;background:rgba(13,31,18,.45);z-index:400;display:flex;align-items:center;justify-content:center;padding:18px;opacity:0;pointer-events:none;transition:opacity .17s}
+.mbg.on{opacity:1;pointer-events:auto}
+.mbox{background:var(--white);border-radius:var(--r);padding:24px;max-width:430px;width:100%;box-shadow:var(--shd);transform:scale(.94);transition:transform .17s;max-height:88vh;overflow-y:auto}
+.mbg.on .mbox{transform:none}
+.mttl{font-size:1rem;font-weight:800;margin-bottom:10px}
+.mbdy{font-size:.86rem;color:var(--forest2);margin-bottom:18px;line-height:1.7}
+.mft{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+
+.sp{display:inline-block;width:15px;height:15px;border:2px solid var(--haze);border-top-color:var(--leaf);border-radius:50%;animation:spin .65s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{display:flex;align-items:center;justify-content:center;padding:60px;gap:10px;color:var(--mist);font-size:.87rem}
+
+.empty{text-align:center;padding:48px 16px;color:var(--haze)}
+.empty-icon{font-size:2.6rem;margin-bottom:10px}
+
+/* login screen */
+.login-wrap{max-width:400px;margin:48px auto;padding:0 14px}
+.login-box{background:var(--white);border-radius:var(--r);border:1px solid var(--bd);box-shadow:var(--shd);padding:32px}
+.login-logo{font-size:2rem;margin-bottom:4px;text-align:center}
+.login-title{font-size:1.15rem;font-weight:800;text-align:center;color:var(--forest);margin-bottom:4px}
+.login-sub{font-size:.8rem;color:var(--mist);text-align:center;margin-bottom:24px}
+.login-tabs{display:flex;gap:0;margin-bottom:20px;border:1.5px solid var(--bd);border-radius:9px;overflow:hidden}
+.login-tab{flex:1;padding:8px;font-family:inherit;font-size:.8rem;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--mist);transition:all .13s}
+.login-tab.on{background:var(--forest);color:#fff}
+.role-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--rp);font-size:.72rem;font-weight:700}
+.role-admin{background:#fff3e0;color:#e65100}
+.role-leader{background:var(--clan2);color:var(--clan)}
+.role-member{background:var(--sage);color:var(--forest2)}
+
+/* setup */
+.setup{max-width:540px;margin:36px auto;background:var(--white);border-radius:var(--r);border:1px solid var(--bd);padding:30px;box-shadow:var(--sh)}
+.setup h2{font-size:1.2rem;font-weight:800;margin-bottom:9px;color:var(--forest)}
+.setup p{font-size:.84rem;color:var(--mist);line-height:1.75;margin-bottom:14px}
+.setup-steps{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.setup-step{display:flex;align-items:flex-start;gap:12px;background:var(--sage);border-radius:10px;padding:12px 14px}
+.setup-num{width:24px;height:24px;border-radius:50%;background:var(--forest);color:#fff;font-size:.75rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.setup-text{font-size:.83rem;color:var(--forest2);line-height:1.6}
+code{background:var(--sage);padding:1px 6px;border-radius:5px;font-size:.82em;color:var(--forest2);font-family:monospace}
+.fb-textarea{font-family:monospace;font-size:.78rem;min-height:130px;resize:vertical;white-space:pre}
+
+.errbox{max-width:470px;margin:36px auto;background:var(--white);border-radius:var(--r);border:1.5px solid #ffcdd2;padding:24px;box-shadow:var(--sh)}
+.errbox h3{font-size:1rem;font-weight:800;color:#c62828;margin-bottom:8px}
+.errbox p{font-size:.85rem;color:var(--forest2);margin-bottom:16px;line-height:1.65}
+
+.cpick{display:flex;gap:5px;flex-wrap:wrap}
+.csw{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s;flex-shrink:0}
+.csw:hover{transform:scale(1.18)}
+.csw.on{border-color:var(--ink)!important;transform:scale(1.15)}
+
+/* section divider */
+.sec-div{display:flex;align-items:center;gap:10px;margin:22px 0 14px}
+.sec-div-line{flex:1;height:1px;background:var(--bd)}
+.sec-div-label{font-size:.72rem;font-weight:700;color:var(--mist);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+
+@media(max-width:480px){
+  .fg{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+  .fg-row{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="toasts" id="toasts"></div>
+<div class="mbg" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="mbox">
+    <div class="mttl" id="mttl"></div>
+    <div class="mbdy" id="mbdy"></div>
+    <div class="mft" id="mft"></div>
+  </div>
+</div>
+<div class="zoom-bg" id="zoomBg" onclick="if(event.target===this)closeZoom()">
+  <div class="zoom-card" id="zoomCard" onclick="closeZoom()"></div>
+</div>
+<div class="mf-bg" id="mfBg" onclick="if(event.target===this)closeMemberFlowers()">
+  <div class="mf-card" id="mfCard"></div>
+</div>
+<div class="savebar" id="savebar">
+  <span style="font-size:.86rem;font-weight:600;color:#a5d6a7">Đã chọn <strong id="sbc" style="color:#fff">0</strong> hoa</span>
+  <button class="btn btn-p" id="sbtn" onclick="saveTicks()">💾 Lưu</button>
+</div>
+
+<div class="bar">
+  <span style="font-size:1.4rem">🌺</span>
+  <span class="bar-logo">Hoa Viên</span>
+  <div class="bar-sp"></div>
+  <div class="bar-sync"><div class="pulse" id="pulse"></div><span id="synclbl">Kết nối</span></div>
+  <div id="bar-user-area"></div>
+</div>
+
+<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Lên đầu trang" aria-label="Lên đầu trang">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+  <span>Lên đầu</span>
+</button>
+<style>
+#scroll-top-btn{
+  position:fixed;bottom:80px;right:14px;z-index:180;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:10px 11px 8px;
+  background:rgba(26,58,34,.72);
+  color:#e8f5e9;
+  border:1.5px solid rgba(255,255,255,.18);
+  border-radius:14px;
+  cursor:pointer;
+  font-family:'Be Vietnam Pro',sans-serif;
+  font-size:.6rem;font-weight:700;letter-spacing:.03em;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 4px 18px rgba(0,0,0,.22);
+  opacity:0;transform:translateY(10px);
+  transition:opacity .25s ease,transform .25s ease;
+  pointer-events:none;
+  line-height:1;
+}
+#scroll-top-btn.visible{opacity:1;transform:none;pointer-events:auto;}
+#scroll-top-btn:hover{background:rgba(26,58,34,.9);border-color:rgba(255,255,255,.32);}
+#scroll-top-btn:active{transform:scale(.94);}
+</style>
+<script>
+(function(){
+  var btn=document.getElementById('scroll-top-btn');
+  window.addEventListener('scroll',function(){
+    btn.classList.toggle('visible',window.scrollY>220);
+  },{passive:true});
+})();
+</script>
+
+<div class="wrap" id="app"></div>
+
+<script type="module">
+import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import {
+  getFirestore, enableIndexedDbPersistence,
+  collection, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
+  doc, query, where, serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+// expose Firebase refs để dùng cho chức năng sao chép sang Firebase đích
+const _fbInit=initializeApp, _fbApps=getApps, _fbGetApp=getApp, _fbGetFirestore=getFirestore;
+
+// ─── FIREBASE CONFIG ─────────────────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  "apiKey": "AIzaSyAsccZgD8tFhSq_YPLtNSHThi1fikOvk80",
+  "authDomain": "hoavien2-d1ecd.firebaseapp.com",
+  "projectId": "hoavien2-d1ecd",
+  "storageBucket": "hoavien2-d1ecd.firebasestorage.app",
+  "messagingSenderId": "562733700961",
+  "appId": "1:562733700961:web:d420a6cbe27d83a8245720",
+  "measurementId": "G-DSKXE8JC1P"
+};
+
+const CK_FB    = 'hv4_fb_config';
+const CK_SESSION = 'hv5_session'; // {role:'admin'|'leader'|'member', id, clanId}
+const CK_CACHE_TS = 'hv5_cache_ts'; // last loadAll timestamp (ms)
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 phút — không re-fetch nếu data còn mới
+const ADMIN_PW_HASH = '67cec4b5d00d79ebebcffdb35234c91c785dca6d03235137aecb44d04011df51';
+const CLOUDINARY_CLOUD = 'dcjv64yqh';
+const CLOUDINARY_PRESET = 'Hoavien';
+
+// ─── (đã gỡ Firebase 2 song song) ─────────────────────────────────────────
+
+// ─── COLORS ───────────────────────────────────────────────────────────────────
+const COLS = [
+  {k:'trang',l:'Trắng/Xám', h:'#94a3b8'},
+  {k:'xanh', l:'Xanh lá',   h:'#22c55e'},
+  {k:'lam',  l:'Xanh lam',  h:'#3b82f6'},
+  {k:'tim',  l:'Tím',        h:'#8b5cf6'},
+  {k:'cam',  l:'Cam',        h:'#f97316'},
+  {k:'do',   l:'Đỏ hồng',    h:'#e91e8c'},
+];
+const CM = Object.fromEntries(COLS.map(c=>[c.k,c]));
+const col = k => CM[k]||{k:'trang',l:k||'?',h:'#94a3b8'};
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let db = null;
+let S = {
+  flowers:[],
+  clans:[],      // [{id,name}]
+  leaders:[],    // [{id,username,password,clanId,displayName}]
+  members:[],    // [{id,username,password,clanId,leaderId,displayName,alias,year}]
+  ticks:{},      // {memberId:[flowerIds]}
+  loaded:false, err:null,
+  page:'flowers', fcolor:'all', tcolor:'all', fq:'', tq:'',
+  msel:new Set(),
+  session: null, // {role, id, clanId, displayName}
+  loginTab: 'member',
+  _editFlowerId:null, _editColor:'trang',
+  proxyMemberId: null,
+  _lastTickSubject: null,
+};
+
+// restore session
+try {
+  const raw = localStorage.getItem(CK_SESSION);
+  if(raw) S.session = JSON.parse(raw);
+} catch(e){}
+
+// ─── FIREBASE ────────────────────────────────────────────────────────────────
+function initFirebase(config){
+  try {
+    const existing = getApps().find(a=>a.name==='hoavien');
+    const app = existing ? getApp('hoavien') : initializeApp(config,'hoavien');
+    db = getFirestore(app);
+    enableIndexedDbPersistence(db).catch(()=>{});
+    return true;
+  } catch(e){ console.error(e); return false; }
+}
+function loadSavedConfig(){
+  const raw=localStorage.getItem(CK_FB);
+  if(!raw) return null;
+  try { return JSON.parse(raw); } catch(e){ return null; }
+}
+
+// ─── PULSE ───────────────────────────────────────────────────────────────────
+const setPulse = s => {
+  const d=document.getElementById('pulse');
+  if(!d) return;
+  d.className='pulse'+(s==='loading'?' loading':s==='err'?' err':'');
+  document.getElementById('synclbl').textContent=s==='loading'?'Đang tải':s==='err'?'Lỗi':'Kết nối';
+};
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function toast(msg,type='ok'){
+  const el=document.createElement('div');
+  el.className='toast '+type;
+  el.textContent=(type==='ok'?'✅ ':type==='er'?'❌ ':'ℹ️ ')+msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),2700);
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openModal(t,b,f){
+  document.getElementById('mttl').innerHTML=t;
+  document.getElementById('mbdy').innerHTML=b;
+  document.getElementById('mft').innerHTML=f||'';
+  document.getElementById('modal').classList.add('on');
+}
+function closeModal(){document.getElementById('modal').classList.remove('on');}
+window.closeModal=closeModal;
+
+// ─── FLOWER ZOOM OVERLAY ─────────────────────────────────────────────────────
+window.openFlowerZoom=function(fid){
+  const f=S.flowers.find(x=>x.id===fid);
+  if(!f) return;
+  const cv=col(f.color);
+  const card=document.getElementById('zoomCard');
+  card.innerHTML=`<button class="zoom-close" onclick="event.stopPropagation();closeZoom()">✕</button>
+    <div class="zoom-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}">`:`<span class="zoom-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}</div>
+    <div class="zoom-body">
+      <div class="zoom-name" style="color:${cv.h}">${esc(f.name)}</div>
+      <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
+      <div class="zoom-owners">${ownershipTagsHtml(fid)}</div>
+    </div>`;
+  document.getElementById('zoomBg').classList.add('on');
+};
+window.closeZoom=function(){
+  document.getElementById('zoomBg').classList.remove('on');
+};
+
+// ─── MEMBER OWNED FLOWERS POPUP ──────────────────────────────────────────────
+window.openMemberFlowers=function(memberId,role){
+  const person = role==='leader'
+    ? S.leaders.find(x=>x.id===memberId)
+    : S.members.find(x=>x.id===memberId);
+  if(!person) return;
+  const owned=new Set(S.ticks[memberId]||[]);
+  const total=S.flowers.length;
+  const groups={};
+  S.flowers.forEach(f=>{ if(owned.has(f.id)) (groups[f.color]||(groups[f.color]=[])).push(f); });
+  const clan=S.clans.find(c=>c.id===person.clanId);
+
+  let bodyHtml;
+  if(owned.size===0){
+    bodyHtml=`<div class="empty"><div class="empty-icon">🌿</div>Chưa đánh dấu hoa nào</div>`;
+  } else {
+    bodyHtml=Object.entries(groups).map(([ck,flowers])=>{
+      const cv=col(ck);
+      return `<div class="mf-grp"><div class="mf-grp-bar" style="background:${cv.h}"></div><h3 style="color:${cv.h}">${cv.l}</h3><span class="mf-grp-cnt">${flowers.length}</span></div>
+      <div class="mf-grid">${flowers.map(f=>`<div class="mf-fc">
+        <div class="mf-fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="mf-fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}</div>
+        <div class="mf-fc-name" style="color:${cv.h}">${esc(f.name)}</div>
+      </div>`).join('')}</div>`;
+    }).join('');
+  }
+
+  const card=document.getElementById('mfCard');
+  card.innerHTML=`<div class="mf-head">
+      <button class="mf-close" onclick="closeMemberFlowers()">✕</button>
+      <div class="mf-title">${role==='leader'?'🏆':'🌸'} ${esc(person.displayName)}</div>
+      <div class="mf-sub">${clan?'🏅 Hội '+esc(clan.name)+' · ':''}${owned.size}/${total} hoa đã sở hữu</div>
+    </div>
+    <div class="mf-body">${bodyHtml}</div>`;
+  document.getElementById('mfBg').classList.add('on');
+};
+window.closeMemberFlowers=function(){
+  document.getElementById('mfBg').classList.remove('on');
+};
+
+// ─── EXPOSED STATE SETTERS (needed by inline onclick in ES module) ────────────
+window.setLoginTab=function(t){S.loginTab=t;render();};
+window.setFcolor=function(v){
+  // Flowers page: dùng S.fcolor
+  S.fcolor=v;
+  const cfbar=document.getElementById('flower-cfbar');
+  if(cfbar){cfbar.innerHTML=buildFlowerCfbarInner();}
+  const flowerGrid=document.getElementById('flower-grid');
+  if(flowerGrid){flowerGrid.innerHTML=buildFlowerGrid();return;}
+  render();
+};
+window.setTcolor=function(v){
+  // Tick page: dùng S.tcolor riêng — không ảnh hưởng tab Hoa
+  S.tcolor=v;
+  const cfbar=document.getElementById('tick-cfbar');
+  if(cfbar) cfbar.innerHTML=buildTickCfbarInner();
+  const tickGrid=document.getElementById('tick-grid');
+  if(tickGrid){tickGrid.innerHTML=buildTickGrid();return;}
+  render();
+};
+let _fqTimer=null;
+window.setFq=function(v){
+  S.fq=v;
+  clearTimeout(_fqTimer);
+  _fqTimer=setTimeout(()=>{
+    const flowerGrid=document.getElementById('flower-grid');
+    if(flowerGrid){flowerGrid.innerHTML=buildFlowerGrid();return;}
+    render();
+  },160);
+};
+let _tqTimer=null;
+window.setTq=function(v){
+  S.tq=v;
+  clearTimeout(_tqTimer);
+  _tqTimer=setTimeout(()=>{
+    const tickGrid=document.getElementById('tick-grid');
+    if(tickGrid){tickGrid.innerHTML=buildTickGrid();}
+  },160);
+};
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// Compute which clans/members own a given flower (scoped to current user's clan if member/leader)
+function getFlowerOwnership(fid){
+  const clanSet=new Set();
+  const mList=[];
+  S.members.forEach(m=>{
+    if((S.ticks[m.id]||[]).includes(fid)){
+      const clan=S.clans.find(c=>c.id===m.clanId);
+      if(clan) clanSet.add(clan.name);
+      mList.push({displayName:m.displayName,clanId:m.clanId});
+    }
+  });
+  S.leaders.forEach(l=>{
+    if((S.ticks[l.id]||[]).includes(fid)){
+      const clan=S.clans.find(c=>c.id===l.clanId);
+      if(clan) clanSet.add(clan.name);
+      mList.push({displayName:l.displayName,clanId:l.clanId});
+    }
+  });
+  let clans=[...clanSet], members=mList;
+  if(isMember()||isLeader()){
+    const clanName=myClanName();
+    const cid=myClanId();
+    clans=clans.filter(n=>n===clanName);
+    members=members.filter(m=>m.clanId===cid);
+  }
+  return {clans,members};
+}
+function ownershipTagsHtml(fid){
+  const {clans,members}=getFlowerOwnership(fid);
+  return (clans.length?`<div class="fc-clans">${clans.map(n=>`<span class="clan-tag">🏅 ${esc(n)}</span>`).join('')}</div>`:'')
+    +(members.length?`<div class="fc-clans">${members.map(m=>`<span class="clan-tag" style="background:#e0f2fe;color:#0369a1">👤 ${esc(m.displayName)}</span>`).join('')}</div>`:'');
+}
+
+// ─── FIRESTORE CRUD ──────────────────────────────────────────────────────────
+
+// Đọc luôn từ db1 (Firebase 1)
+async function fsGetAll(colName){
+  const snap=await getDocs(collection(db,colName));
+  return snap.docs.map(d=>({_id:d.id,...d.data()}));
+}
+
+// Ghi vào db1 (Firebase 1)
+async function fsSet(colName,docId,data){
+  await setDoc(doc(db,colName,docId),data,{merge:true});
+}
+
+// Xóa khỏi db1
+async function fsDel(colName,docId){
+  await deleteDoc(doc(db,colName,docId));
+}
+
+// ─── LOAD ALL ────────────────────────────────────────────────────────────────
+async function loadAll(force=false){
+  if(!db){S.loaded=true;return;}
+  // ── Quota optimisation: skip fetch if data is still fresh ──────────────────
+  if(!force){
+    const lastTs=Number(localStorage.getItem(CK_CACHE_TS)||0);
+    if(lastTs && Date.now()-lastTs < CACHE_TTL_MS && S.loaded && S.flowers.length>0){
+      return; // dữ liệu còn mới, không cần đọc Firebase
+    }
+  }
+  S.loaded=false;S.err=null;setPulse('loading');
+  // Nếu tk1 hết quota khi đọc → tự switch sang tk2
+  try {
+    const [fl,cl,ld,mb,tk]=await Promise.all([
+      fsGetAll('flowers'),
+      fsGetAll('clans'),
+      fsGetAll('leaders'),
+      fsGetAll('members'),
+      fsGetAll('ticks'),
+    ]);
+    S.flowers=fl.filter(r=>r.name).map(r=>({
+      id:r._id,name:r.name,color:r.color||'trang',
+      imgUrl:r.imgUrl||'',sortOrder:Number(r.sortOrder)||0,
+    })).sort((a,b)=>a.sortOrder-b.sortOrder);
+    S.clans=cl.filter(r=>r.name).map(r=>({id:r._id,name:r.name}));
+    S.leaders=ld.filter(r=>r.username).map(r=>({
+      id:r._id,username:r.username,password:r.password||'',
+      clanId:r.clanId||'',displayName:r.displayName||r.username,
+    }));
+    S.members=mb.filter(r=>r.username).map(r=>({
+      id:r._id,username:r.username,password:r.password||'',
+      clanId:r.clanId||'',leaderId:r.leaderId||'',
+      displayName:r.displayName||r.username,alias:r.alias||'',year:r.year||'',
+    }));
+    S.ticks={};
+    tk.forEach(r=>{S.ticks[r._id]=Array.isArray(r.flowerIds)?r.flowerIds:[];});
+    S.loaded=true;setPulse('');
+    localStorage.setItem(CK_CACHE_TS, Date.now().toString());
+    // refresh session display name if needed
+    if(S.session){
+      if(S.session.role==='leader'){
+        const l=S.leaders.find(x=>x.id===S.session.id);
+        if(l) S.session.displayName=l.displayName;
+      } else if(S.session.role==='member'){
+        const m=S.members.find(x=>x.id===S.session.id);
+        if(m){S.session.displayName=m.displayName;S.session.clanId=m.clanId;}
+      }
+    }
+  } catch(e){
+    S.err='Không tải được: '+e.message;
+    S.loaded=true;setPulse('err');
+  }
+}
+
+// ─── SESSION HELPERS ─────────────────────────────────────────────────────────
+function saveSession(s){
+  S.session=s;
+  localStorage.setItem(CK_SESSION,JSON.stringify(s));
+}
+function clearSession(){
+  S.session=null;
+  localStorage.removeItem(CK_SESSION);
+}
+function isAdmin(){return S.session?.role==='admin';}
+function isLeader(){return S.session?.role==='leader';}
+function isMember(){return S.session?.role==='member';}
+function mySession(){return S.session;}
+function myClanId(){return S.session?.clanId||'';}
+function myClanName(){
+  const c=S.clans.find(x=>x.id===myClanId());
+  return c?c.name:'';
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render(){
+  const app=document.getElementById('app');
+  if(!app) return;
+
+  // savebar — handled after app.innerHTML below
+
+  // header user area
+  renderBarUser();
+
+  if(!db){app.innerHTML=renderSetup();return;}
+  if(!S.loaded){app.innerHTML='<div class="loading"><div class="sp"></div> Đang tải...</div>';return;}
+  if(S.err){app.innerHTML=renderErr();return;}
+  if(!S.session){app.innerHTML=renderLogin();return;}
+
+  app.innerHTML=renderNav()+renderPage();
+
+  // savebar — cập nhật SAU khi renderPage() đã resolve msel (quan trọng: phải sau app.innerHTML)
+  const sb=document.getElementById('savebar');
+  if(S.page==='tick'&&(isMember()||isLeader())){
+    sb.classList.add('on');
+    const sbSpan=document.querySelector('#savebar span');
+    if(sbSpan){
+      if(isLeader()&&S.proxyMemberId){
+        const m=S.members.find(x=>x.id===S.proxyMemberId);
+        sbSpan.innerHTML=`Lưu cho <strong style="color:#fff">${esc(m?.displayName||'thành viên')}</strong>: <strong style="color:#fff" id="sbc">${S.msel.size}</strong> hoa`;
+      } else {
+        sbSpan.innerHTML=`Đã chọn <strong style="color:#fff" id="sbc">${S.msel.size}</strong> hoa`;
+      }
+    }
+  } else {
+    sb.classList.remove('on');
+  }
+}
+
+function renderBarUser(){
+  const area=document.getElementById('bar-user-area');
+  if(!area) return;
+  if(!S.session){area.innerHTML='';return;}
+  const icons={admin:'🔓',leader:'🏆',member:'🌸'};
+  const icon=icons[S.session.role]||'👤';
+  area.innerHTML=`<div class="bar-user" onclick="doLogout()" title="Nhấn để đăng xuất">${icon} <span>${esc(S.session.displayName)}</span> <span style="opacity:.5;font-size:.65rem">✕</span></div>`;
+}
+
+function renderNav(){
+  const tabs=[];
+  if(isAdmin()||isLeader()||isMember()) tabs.push({k:'flowers',l:'🌸 Hoa'});
+  if(isMember()||isLeader()) tabs.push({k:'tick',l:'✅ Đánh dấu'});
+  if(isAdmin()||isLeader()||isMember()) tabs.push({k:'members',l:'👥 Thành viên'});
+  if(isAdmin()||isLeader()) tabs.push({k:'manage',l:'⚙️ Quản lý'});
+  if(isAdmin()) tabs.push({k:'settings',l:'🔧 Cài đặt'});
+  return `<div class="nav">${tabs.map(t=>`<button class="nvb ${S.page===t.k?'on':''}" onclick="goto('${t.k}')">${t.l}</button>`).join('')}</div>`;
+}
+window.goto=function(p){
+  if(S.page==='tick' && p!=='tick'){
+    S.tcolor='all'; S.tq='';
+    S._lastTickSubject=null; // force msel reload khi quay lại tick page
+  }
+  if(S.page==='flowers' && p!=='flowers'){
+    S.fcolor='all'; S.fq=''; // reset bộ lọc màu khi rời tab Hoa
+  }
+  S.page=p;
+  render();
+};
+
+function renderPage(){
+  if(S.page==='flowers') return pageFlowers();
+  if(S.page==='tick')    return pageTick();
+  if(S.page==='members') return pageMembers();
+  if(S.page==='manage')  return pageManage();
+  if(S.page==='settings')return pageSettings();
+  return pageFlowers();
+}
+
+// ─── LOGIN SCREEN ────────────────────────────────────────────────────────────
+function renderLogin(){
+  return `<div class="login-wrap">
+    <div class="login-box">
+      <div class="login-logo">🌺</div>
+      <div class="login-title">Hoa Viên</div>
+      <div class="login-sub">Đăng nhập để tiếp tục</div>
+      <div class="login-tabs">
+        <button class="login-tab ${S.loginTab==='member'?'on':''}" onclick="setLoginTab('member')">Thành viên</button>
+        <button class="login-tab ${S.loginTab==='leader'?'on':''}" onclick="setLoginTab('leader')">Hội trưởng</button>
+        <button class="login-tab ${S.loginTab==='admin'?'on':''}" onclick="setLoginTab('admin')">Admin</button>
+      </div>
+      ${S.loginTab==='admin'?loginFormAdmin():S.loginTab==='leader'?loginFormLeader():loginFormMember()}
+    </div>
+  </div>`;
+}
+
+function loginFormAdmin(){
+  return `<div style="display:flex;flex-direction:column;gap:12px">
+    <div class="fg-col"><label class="fl">Mật khẩu Admin</label><input class="fi" id="adm-pw" type="password" placeholder="Nhập mật khẩu" onkeydown="if(event.key==='Enter')doLoginAdmin()"></div>
+    <button class="btn btn-g" style="width:100%;justify-content:center" onclick="doLoginAdmin()">🔓 Đăng nhập Admin</button>
+  </div>`;
+}
+function loginFormLeader(){
+  return `<div style="display:flex;flex-direction:column;gap:12px">
+    <div class="fg-col"><label class="fl">Tên đăng nhập</label><input class="fi" id="ld-u" placeholder="username" onkeydown="if(event.key==='Enter')doLoginLeader()"></div>
+    <div class="fg-col"><label class="fl">Mật khẩu</label><input class="fi" id="ld-p" type="password" placeholder="password" onkeydown="if(event.key==='Enter')doLoginLeader()"></div>
+    <button class="btn btn-v" style="width:100%;justify-content:center" onclick="doLoginLeader()">🏆 Đăng nhập Hội trưởng</button>
+  </div>`;
+}
+function loginFormMember(){
+  return `<div style="display:flex;flex-direction:column;gap:12px">
+    <div class="fg-col"><label class="fl">Tên đăng nhập</label><input class="fi" id="mb-u" placeholder="username" onkeydown="if(event.key==='Enter')doLoginMember()"></div>
+    <div class="fg-col"><label class="fl">Mật khẩu</label><input class="fi" id="mb-p" type="password" placeholder="password" onkeydown="if(event.key==='Enter')doLoginMember()"></div>
+    <button class="btn btn-p" style="width:100%;justify-content:center" onclick="doLoginMember()">🌸 Đăng nhập</button>
+  </div>`;
+}
+
+window.doLoginAdmin=async function(){
+  const pw=document.getElementById('adm-pw')?.value;
+  if(!pw){toast('Nhập mật khẩu!','wn');return;}
+  const enc=new TextEncoder().encode(pw);
+  const buf=await crypto.subtle.digest('SHA-256',enc);
+  const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(hash===ADMIN_PW_HASH){
+    saveSession({role:'admin',id:'admin',clanId:'',displayName:'Admin'});
+    S.page='flowers';toast('Chào Admin! 🔓');render();
+  } else toast('Sai mật khẩu!','er');
+};
+window.doLoginLeader=function(){
+  const u=document.getElementById('ld-u')?.value.trim();
+  const p=document.getElementById('ld-p')?.value;
+  const l=S.leaders.find(x=>x.username===u&&x.password===p);
+  if(l){
+    saveSession({role:'leader',id:l.id,clanId:l.clanId,displayName:l.displayName});
+    S.msel=new Set(S.ticks[l.id]||[]);
+    S.page='flowers';toast('Chào '+l.displayName+' 🏆');render();
+  } else toast('Sai tên đăng nhập hoặc mật khẩu!','er');
+};
+window.doLoginMember=function(){
+  const u=document.getElementById('mb-u')?.value.trim();
+  const p=document.getElementById('mb-p')?.value;
+  const m=S.members.find(x=>x.username===u&&x.password===p);
+  if(m){
+    saveSession({role:'member',id:m.id,clanId:m.clanId,displayName:m.displayName});
+    S.msel=new Set(S.ticks[m.id]||[]);
+    S.page='tick';toast('Chào '+m.displayName+' 🌸');render();
+  } else toast('Sai tên đăng nhập hoặc mật khẩu!','er');
+};
+window.doLogout=function(){
+  clearSession();
+  S.msel=new Set();
+  S.page='flowers';
+  S.loginTab='member';
+  S.proxyMemberId=null;
+  S._lastTickSubject=null;
+  S.tcolor='all'; S.tq='';
+  S.fcolor='all'; S.fq='';
+  toast('Đã đăng xuất');
+  render();
+};
+
+// ─── FLOWERS PAGE ────────────────────────────────────────────────────────────
+function pageFlowers(){
+  const q=S.fq.trim().toLowerCase();
+  let list=S.flowers;
+  if(S.fcolor!=='all') list=list.filter(f=>f.color===S.fcolor);
+  if(q) list=list.filter(f=>f.name.toLowerCase().includes(q));
+
+  const groups={};
+  list.forEach(f=>{(groups[f.color]||(groups[f.color]=[])).push(f);});
+
+  // Build clan + member ownership map: for each flower, which clans/members own it
+  const flowerClans={};
+  const flowerMembers={}; // {flowerId: [{displayName, clanId}]}
+  S.flowers.forEach(f=>{
+    const clanSet=new Set();
+    const mList=[];
+    S.members.forEach(m=>{
+      if((S.ticks[m.id]||[]).includes(f.id)){
+        const clan=S.clans.find(c=>c.id===m.clanId);
+        if(clan) clanSet.add(clan.name);
+        mList.push({displayName:m.displayName,clanId:m.clanId});
+      }
+    });
+    S.leaders.forEach(l=>{
+      if((S.ticks[l.id]||[]).includes(f.id)){
+        const clan=S.clans.find(c=>c.id===l.clanId);
+        if(clan) clanSet.add(clan.name);
+        mList.push({displayName:l.displayName,clanId:l.clanId});
+      }
+    });
+    flowerClans[f.id]=[...clanSet];
+    flowerMembers[f.id]=mList;
+  });
+
+  // For member/leader: only show data from their own clan
+  const getDisplayClans = (fid) => {
+    if(isMember()||isLeader()){
+      const clanName=myClanName();
+      return flowerClans[fid].filter(n=>n===clanName);
+    }
+    return flowerClans[fid]; // admin sees all
+  };
+  const getDisplayMembers = (fid) => {
+    if(isMember()||isLeader()){
+      const cid=myClanId();
+      return flowerMembers[fid].filter(m=>m.clanId===cid);
+    }
+    return flowerMembers[fid]; // admin sees all
+  };
+
+  // Pre-compute owned counts per color for member/leader — now handled by buildFlowerCfbarInner()
+  const colorFilter=`<div class="cfbar" id="flower-cfbar">${buildFlowerCfbarInner()}</div>`;
+
+  const searchBar=`<div class="sbar"><span class="sico">🔍</span><input class="fi" id="fq" value="${esc(S.fq)}" placeholder="Tìm tên hoa..." oninput="setFq(this.value)"></div>`;
+
+  // For member/leader: only show flowers that at least 1 member in their clan has ticked
+  if(isMember()||isLeader()){
+    const cid=myClanId();
+    const clanMemberIds=S.members.filter(m=>m.clanId===cid).map(m=>m.id);
+    const clanLeaderIds=S.leaders.filter(l=>l.clanId===cid).map(l=>l.id);
+    const allIds=[...clanMemberIds,...clanLeaderIds];
+    list=list.filter(f=>allIds.some(id=>(S.ticks[id]||[]).includes(f.id)));
+    // rebuild groups after filter
+    Object.keys(groups).forEach(k=>delete groups[k]);
+    list.forEach(f=>{(groups[f.color]||(groups[f.color]=[])).push(f);});
+  }
+
+  if(!list.length) return colorFilter+searchBar+`<div class="empty"><div class="empty-icon">🌿</div>Chưa có hoa nào được đánh dấu trong hội</div>`;
+
+  const html=Object.entries(groups).map(([ck,flowers])=>{
+    const cv=col(ck);
+    const totalInColor=S.flowers.filter(f=>f.color===ck).length;
+    const grpLabel=isMember()||isLeader()?`${flowers.length}/${totalInColor}`:flowers.length;
+    return `<div class="grp"><div class="grp-bar" style="background:${cv.h}"></div><h2 style="color:${cv.h}">${cv.l}</h2><span class="grp-cnt">${grpLabel}</span></div>
+    <div class="fg">${flowers.map(f=>{
+      const dClans=getDisplayClans(f.id);
+      const dMembers=getDisplayMembers(f.id);
+      return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
+        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}</div>
+        <div class="fc-body">
+          <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
+          <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
+          ${dClans.length?`<div class="fc-clans">${dClans.map(n=>`<span class="clan-tag">🏅 ${esc(n)}</span>`).join('')}</div>`:''}
+          ${dMembers.length?`<div class="fc-clans">${dMembers.map(m=>`<span class="clan-tag" style="background:#e0f2fe;color:#0369a1">👤 ${esc(m.displayName)}</span>`).join('')}</div>`:''}
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  }).join('');
+
+  return colorFilter+searchBar+`<div id="flower-grid">${html}</div>`;
+}
+
+// ─── BUILD FLOWER CFBAR (reusable for live color filter) ────────────────────
+function buildFlowerCfbarInner(){
+  const getOwnedCount = (colorKey) => {
+    if(!isMember()&&!isLeader()) return null;
+    const cid=myClanId();
+    const allIds=[
+      ...S.members.filter(m=>m.clanId===cid).map(m=>m.id),
+      ...S.leaders.filter(l=>l.clanId===cid).map(l=>l.id)
+    ];
+    const flowers = colorKey==='all' ? S.flowers : S.flowers.filter(f=>f.color===colorKey);
+    return flowers.filter(f=>allIds.some(id=>(S.ticks[id]||[]).includes(f.id))).length;
+  };
+  const totalAll=S.flowers.length;
+  const ownedAll=isMember()||isLeader()?getOwnedCount('all'):null;
+  const allOn=S.fcolor==='all';
+  const allBtn=`<button class="ctab ${allOn?'on':''}" onclick="setFcolor('all')" style="${allOn?'border-color:var(--forest);color:var(--forest)':''}">Tất cả (${ownedAll!==null?ownedAll+'/'+totalAll:totalAll})</button>`;
+  const colorBtns=COLS.filter(c=>S.flowers.some(f=>f.color===c.k)).map(c=>{
+    const total=S.flowers.filter(f=>f.color===c.k).length;
+    const owned=isMember()||isLeader()?getOwnedCount(c.k):null;
+    const on=S.fcolor===c.k;
+    return `<button class="ctab ${on?'on':''}" onclick="setFcolor('${c.k}')" style="${on?`border-color:${c.h};color:${c.h}`:''}"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c.h};margin-right:3px;vertical-align:middle"></span>${c.l} (${owned!==null?owned+'/'+total:total})</button>`;
+  }).join('');
+  return allBtn+colorBtns;
+}
+
+// ─── BUILD FLOWER GRID (reusable for live search) ───────────────────────────
+function buildFlowerGrid(){
+  let list=[...S.flowers];
+  const q=S.fq.trim().toLowerCase();
+  if(q) list=list.filter(f=>f.name.toLowerCase().includes(q));
+  if(S.fcolor!=='all') list=list.filter(f=>f.color===S.fcolor);
+  if(isMember()||isLeader()){
+    const cid=myClanId();
+    const allIds=[...S.members.filter(m=>m.clanId===cid).map(m=>m.id),...S.leaders.filter(l=>l.clanId===cid).map(l=>l.id)];
+    list=list.filter(f=>allIds.some(id=>(S.ticks[id]||[]).includes(f.id)));
+  }
+  if(!list.length) return `<div class="empty"><div class="empty-icon">🌿</div>${S.fq?'Không tìm thấy hoa nào':'Chưa có hoa nào được đánh dấu trong hội'}</div>`;
+  const groups={};
+  list.forEach(f=>{(groups[f.color]||(groups[f.color]=[])).push(f);});
+  const fm={};const fc={};
+  S.flowers.forEach(f=>{
+    const cs=new Set();const ml=[];
+    S.members.forEach(m=>{if((S.ticks[m.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===m.clanId);if(cl)cs.add(cl.name);ml.push({displayName:m.displayName,clanId:m.clanId});}});
+    S.leaders.forEach(l=>{if((S.ticks[l.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===l.clanId);if(cl)cs.add(cl.name);ml.push({displayName:l.displayName,clanId:l.clanId});}});
+    fc[f.id]=[...cs];fm[f.id]=ml;
+  });
+  const gClans=(fid)=>{if(isMember()||isLeader()){const n=myClanName();return fc[fid].filter(x=>x===n);}return fc[fid];};
+  const gMembers=(fid)=>{if(isMember()||isLeader()){const cid=myClanId();return fm[fid].filter(m=>m.clanId===cid);}return fm[fid];};
+  return Object.entries(groups).map(([ck,flowers])=>{
+    const cv=col(ck);
+    const totalInColor=S.flowers.filter(f=>f.color===ck).length;
+    const grpLabel=isMember()||isLeader()?`${flowers.length}/${totalInColor}`:flowers.length;
+    return `<div class="grp"><div class="grp-bar" style="background:${cv.h}"></div><h2 style="color:${cv.h}">${cv.l}</h2><span class="grp-cnt">${grpLabel}</span></div>
+    <div class="fg">${flowers.map(f=>{
+      const dC=gClans(f.id);const dM=gMembers(f.id);
+      return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
+        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}</div>
+        <div class="fc-body">
+          <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
+          <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
+          ${dC.length?`<div class="fc-clans">${dC.map(n=>`<span class="clan-tag">🏅 ${esc(n)}</span>`).join('')}</div>`:''}
+          ${dM.length?`<div class="fc-clans">${dM.map(m=>`<span class="clan-tag" style="background:#e0f2fe;color:#0369a1">👤 ${esc(m.displayName)}</span>`).join('')}</div>`:''}
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  }).join('');
+}
+
+// ─── TICK PAGE HELPERS (partial-update safe) ──────────────────────────────────
+function buildTickCfbarInner(){
+  // Trả về innerHTML của #tick-cfbar (không bao gồm thẻ div ngoài)
+  const allOn = S.tcolor==='all';
+  const allBtn=`<button class="ctab ${allOn?'on':''}" onclick="setTcolor('all')" style="${allOn?'border-color:var(--forest);color:var(--forest)':''}">Tất cả</button>`;
+  const colorBtns=COLS.filter(c=>S.flowers.some(f=>f.color===c.k)).map(c=>{
+    const on=S.tcolor===c.k;
+    return `<button class="ctab ${on?'on':''}" onclick="setTcolor('${c.k}')" style="${on?`border-color:${c.h};color:${c.h}`:''}"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c.h};margin-right:3px;vertical-align:middle"></span>${c.l}</button>`;
+  }).join('');
+  return allBtn+colorBtns;
+}
+function buildTickGrid(){
+  const q=S.tq.trim().toLowerCase();
+  let list=S.flowers;
+  if(S.tcolor!=='all') list=list.filter(f=>f.color===S.tcolor);
+  if(q) list=list.filter(f=>f.name.toLowerCase().includes(q));
+  if(!list.length) return `<div class="empty"><div class="empty-icon">🌿</div>Không tìm thấy</div>`;
+  const groups={};
+  list.forEach(f=>{(groups[f.color]||(groups[f.color]=[])).push(f);});
+  return Object.entries(groups).map(([ck,flowers])=>{
+    const cv=col(ck);
+    return `<div class="grp"><div class="grp-bar" style="background:${cv.h}"></div><h2 style="color:${cv.h}">${cv.l}</h2><span class="grp-cnt">${flowers.length}</span></div>
+    <div class="fg">${flowers.map(f=>{
+      const tk=S.msel.has(f.id);
+      return `<div class="fc tc ${tk?'ticked':''}" onclick="toggleTick('${f.id}')">
+        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}
+        <div class="chk">${tk?'✓':''}</div></div>
+        <div class="fc-body"><div class="fc-name">${esc(f.name)}</div>
+        <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span></div>
+      </div>`;
+    }).join('')}</div>`;
+  }).join('');
+}
+
+// ─── TICK PAGE (MEMBER / LEADER) ──────────────────────────────────────────────
+function pageTick(){
+  if(!isMember()&&!isLeader()) return `<div class="empty"><div class="empty-icon">🔒</div>Chỉ thành viên mới có thể đánh dấu hoa</div>`;
+
+  const myId = S.session.id;
+  const clanName=myClanName();
+  const subjectId = (isLeader() && S.proxyMemberId) ? S.proxyMemberId : myId;
+
+  const me = isMember()
+    ? S.members.find(m=>m.id===myId)
+    : S.leaders.find(l=>l.id===myId);
+
+  // Load msel chỉ khi subject thay đổi (source of truth = _lastTickSubject, không dùng msel.size)
+  if(S._lastTickSubject !== subjectId){
+    S._lastTickSubject = subjectId;
+    S.msel = new Set(S.ticks[subjectId]||[]);
+  }
+
+  let proxyHtml='';
+  if(isLeader()){
+    const clanMembers=S.members.filter(m=>m.clanId===myClanId());
+    const opts=clanMembers.map(m=>`<option value="${m.id}" ${S.proxyMemberId===m.id?'selected':''}>${esc(m.displayName)}${m.alias?' ('+esc(m.alias)+')':''}</option>`).join('');
+    proxyHtml=`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--clan)">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:.82rem;font-weight:700;color:var(--clan)">🏆 Tick hoa giúp thành viên</span>
+        <select class="fi" style="max-width:220px;flex:1" onchange="setProxyMember(this.value)">
+          <option value="">— Tick cho chính mình —</option>
+          ${clanMembers.length?opts:'<option disabled>Chưa có thành viên</option>'}
+        </select>
+        ${S.proxyMemberId?`<span class="role-chip role-member" style="background:#ede9fe;color:var(--clan)">👤 ${esc(S.members.find(x=>x.id===S.proxyMemberId)?.displayName||'')}</span>`:''}
+      </div>
+    </div>`;
+  }
+
+  const displaySubject = S.proxyMemberId ? S.members.find(x=>x.id===S.proxyMemberId) : me;
+  const info=`<div class="card" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      ${S.proxyMemberId
+        ? `<span class="role-chip role-member">🌸 ${esc(displaySubject?.displayName||'')}</span><span style="font-size:.75rem;color:var(--clan);font-weight:600">← được tick bởi Hội trưởng</span>`
+        : isLeader()
+          ? `<span class="role-chip role-leader">🏆 ${esc(me?.displayName||'')}</span>`
+          : `<span class="role-chip role-member">🌸 ${esc(me?.displayName||'')}</span>`}
+      <span class="clan-tag">🏅 Hội ${esc(clanName)}</span>
+      <span style="font-size:.8rem;color:var(--mist);margin-left:auto">${S.msel.size}/${S.flowers.length} hoa đã chọn</span>
+    </div>
+  </div>`;
+
+  // cfbar và grid có id riêng → partial update không cần rebuild cả trang
+  const colorFilter=`<div class="cfbar" id="tick-cfbar">${buildTickCfbarInner()}</div>`;
+  const searchBar=`<div class="sbar"><span class="sico">🔍</span><input class="fi" id="tq" value="${esc(S.tq)}" placeholder="Tìm tên hoa..." oninput="setTq(this.value)"></div>`;
+
+  return proxyHtml+info+colorFilter+searchBar+`<div id="tick-grid">${buildTickGrid()}</div>`;
+}
+
+window.setProxyMember=function(memberId){
+  S.proxyMemberId = memberId || null;
+  S._lastTickSubject = null; // force msel reload on next render
+  render();
+};
+
+window.toggleTick=function(id){
+  if(!isMember()&&!isLeader()){toast('Chỉ thành viên mới tick được!','wn');return;}
+  S.msel.has(id)?S.msel.delete(id):S.msel.add(id);
+  const cards=document.querySelectorAll('.tc');
+  cards.forEach(card=>{
+    const fn=card.getAttribute('onclick');
+    if(fn&&fn.includes(`'${id}'`)){
+      const ticked=S.msel.has(id);
+      card.classList.toggle('ticked',ticked);
+      const chk=card.querySelector('.chk');
+      if(chk) chk.textContent=ticked?'✓':'';
+    }
+  });
+  const sbcEl=document.getElementById('sbc');
+  if(sbcEl) sbcEl.textContent=S.msel.size;
+};
+
+window.saveTicks=async function(){
+  if(!isMember()&&!isLeader()){toast('Chỉ thành viên mới lưu được!','wn');return;}
+  const btn=document.getElementById('sbtn');
+  btn.disabled=true;btn.innerHTML='<div class="sp"></div>';
+  setPulse('loading');
+  try {
+    // Hội trưởng tick thay: lưu vào memberId được chọn, không phải id leader
+    const memberId = (isLeader() && S.proxyMemberId) ? S.proxyMemberId : S.session.id;
+    const saved=[...S.msel];
+    // ── Quota optimisation: skip Firestore write nếu data không đổi ──────────
+    const existing=S.ticks[memberId]||[];
+    const same=existing.length===saved.length && saved.every(id=>existing.includes(id));
+    if(same){toast('Không có thay đổi nào 🌿','wn');btn.disabled=false;btn.innerHTML='💾 Lưu';setPulse('');return;}
+    await fsSet('ticks',memberId,{flowerIds:saved,updatedAt:new Date().toISOString()});
+    S.ticks[memberId]=saved;
+    S.msel=new Set(saved);
+    const sbcEl=document.getElementById('sbc');
+    if(sbcEl) sbcEl.textContent=S.msel.size;
+    if(isLeader()&&S.proxyMemberId){
+      const m=S.members.find(x=>x.id===S.proxyMemberId);
+      toast(`Đã lưu hoa cho ${m?.displayName||'thành viên'} 🌸`);
+    } else {
+      toast('Đã lưu 🌸');
+    }
+  } catch(e){ toast('Lỗi lưu: '+e.message,'er'); }
+  setPulse('');
+  btn.disabled=false;btn.innerHTML='💾 Lưu';
+};
+
+// ─── MEMBERS PAGE (ADMIN + LEADER + MEMBER) ──────────────────────────────────
+function pageMembers(){
+  if(!isAdmin()&&!isLeader()&&!isMember()) return `<div class="empty"><div class="empty-icon">🔒</div>Không có quyền xem</div>`;
+
+  // filter members to current clan if leader/member; admin sees all
+  const myMembers = (isLeader()||isMember())
+    ? S.members.filter(m=>m.clanId===myClanId())
+    : S.members;
+  const myLeaders = (isLeader()||isMember())
+    ? S.leaders.filter(l=>l.clanId===myClanId())
+    : S.leaders;
+
+  const total=S.flowers.length;
+  const clanName = (isLeader()||isMember()) ? myClanName() : null;
+
+  const statsHtml=`<div class="stats">
+    <div class="sc"><div class="sv">${myMembers.length+myLeaders.length}</div><div class="sl">${clanName?'TV Hội '+clanName:'Thành viên'}</div></div>
+    <div class="sc"><div class="sv">${total}</div><div class="sl">Loài hoa</div></div>
+    <div class="sc"><div class="sv">${total?Math.round([...myMembers,...myLeaders].reduce((a,m)=>a+(S.ticks[m.id]||[]).length,0)/Math.max(myMembers.length+myLeaders.length,1)):0}</div><div class="sl">TB / người</div></div>
+  </div>
+  ${(isLeader()||isMember()) && myLeaders.length>0 ? `<div class="card" style="margin-bottom:14px;border-left:3px solid var(--clan);background:#faf5ff">
+    <div style="display:flex;align-items:flex-start;gap:9px">
+      <span style="font-size:1.3rem">🏆</span>
+      <div>
+        <div style="font-size:.82rem;font-weight:700;color:var(--clan);margin-bottom:3px">Hội trưởng có thể tick hoa giúp thành viên!</div>
+        <div style="font-size:.78rem;color:#7c3aed99;line-height:1.6">Hội trưởng <strong>${myLeaders.map(l=>esc(l.displayName)).join(', ')}</strong> có thể vào tab <em>✅ Đánh dấu</em>, chọn tên thành viên và tick hoa giúp — tiện cho những ai chưa kịp cập nhật nhé 🌸</div>
+      </div>
+    </div>
+  </div>` : ''}`;
+
+  // For leader/member/admin view, show leader(s) of the clan first, then members
+  const leaderRows = myLeaders.map(l=>{
+    const n=(S.ticks[l.id]||[]).length;
+    const pct=total?Math.round(n/total*100):0;
+    const clan=S.clans.find(c=>c.id===l.clanId);
+    return `<tr>
+      <td style="color:var(--haze);font-weight:800;width:28px">🏆</td>
+      <td><div class="mb-name-link" style="font-weight:700" onclick="openMemberFlowers('${l.id}','leader')">${esc(l.displayName)}</div><div style="font-size:.72rem;color:var(--clan)">Hội trưởng</div></td>
+      ${isAdmin()?`<td><span class="clan-tag">${clan?'🏅 '+esc(clan.name):'—'}</span></td>`:''}
+      <td><div class="mbar-w"><div class="mbar"><div class="mbar-f" style="width:${pct}%"></div></div><span class="mlbl">${n}/${total}</span></div></td>
+      ${isAdmin()?`<td></td>`:''}
+    </tr>`;
+  }).join('');
+
+  const sorted=[...myMembers].sort((a,b)=>(S.ticks[b.id]||[]).length-(S.ticks[a.id]||[]).length);
+  const memberRows = sorted.map((m,i)=>{
+      const n=(S.ticks[m.id]||[]).length;
+      const pct=total?Math.round(n/total*100):0;
+      const clan=S.clans.find(c=>c.id===m.clanId);
+      return `<tr>
+        <td style="color:var(--haze);font-weight:800;width:28px">${i+1}</td>
+        <td><div class="mb-name-link" style="font-weight:700" onclick="openMemberFlowers('${m.id}','member')">${esc(m.displayName)}</div>${m.alias||m.year?`<div style="font-size:.74rem;color:var(--mist)">${[m.alias,m.year].filter(Boolean).join(' · ')}</div>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
+        ${isAdmin()?`<td><span class="clan-tag">${clan?'🏅 '+esc(clan.name):'—'}</span></td>`:''}
+        <td><div class="mbar-w"><div class="mbar"><div class="mbar-f" style="width:${pct}%"></div></div><span class="mlbl">${n}/${total}</span></div></td>
+        ${isAdmin()?`<td><button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>`:''}
+      </tr>`;
+  }).join('');
+
+  const allRows=leaderRows+memberRows;
+  const tableHtml=(!allRows)
+    ?`<div class="empty"><div class="empty-icon">👥</div>Chưa có thành viên</div>`
+    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>#</th><th>Thành viên</th>${isAdmin()?'<th>Hội</th>':''}<th>Sở hữu</th>${isAdmin()?'<th></th>':''}</tr></thead><tbody>
+    ${allRows}</tbody></table></div>`;
+  return statsHtml+`<div class="card">${tableHtml}</div>`;
+}
+
+// ─── MANAGE PAGE ─────────────────────────────────────────────────────────────
+function pageManage(){
+  if(!isAdmin()&&!isLeader()) return `<div class="empty"><div class="empty-icon">🔒</div>Không có quyền</div>`;
+  if(isLeader()) return manageLeaderSection();
+  // Admin: tab-based layout
+  if(!S._manageTab) S._manageTab='clans';
+  const tabs=[
+    {k:'clans',  l:'🏅 Hội',        fn:manageClans},
+    {k:'leaders',l:'🏆 Hội trưởng', fn:manageLeaders},
+    {k:'flowers',l:'🌸 Hoa',         fn:manageFlowers},
+    {k:'members',l:'👥 Thành viên',  fn:manageAllMembers},
+  ];
+  const tabBar=`<div class="nav" style="margin-bottom:16px">${tabs.map(t=>`<button class="nvb ${S._manageTab===t.k?'on':''}" onclick="setManageTab('${t.k}')">${t.l}</button>`).join('')}</div>`;
+  const active=tabs.find(t=>t.k===S._manageTab)||tabs[0];
+  return tabBar+active.fn();
+}
+window.setManageTab=function(k){S._manageTab=k;render();};
+
+function manageLeaderSection(){
+  return manageClanMembers();
+}
+
+// ── CLANS (ADMIN) ─────────────────────────────────────────────────────────────
+function manageClans(){
+  const rows=S.clans.map(c=>`<tr>
+    <td><strong>${esc(c.name)}</strong></td>
+    <td style="font-size:.78rem;color:var(--mist)">${S.leaders.filter(l=>l.clanId===c.id).map(l=>esc(l.displayName)).join(', ')||'—'}</td>
+    <td style="font-size:.78rem;color:var(--mist)">${S.members.filter(m=>m.clanId===c.id).length+S.leaders.filter(l=>l.clanId===c.id).length} thành viên</td>
+    <td><button class="ibtn del" onclick="confirmDelClan('${c.id}')">🗑️</button></td>
+  </tr>`).join('');
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-title">🏅 Quản lý Hội (Clan) <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${S.clans.length})</span>
+      <button class="btn btn-v btn-sm" style="margin-left:auto" onclick="openAddClan()">+ Thêm Hội</button>
+    </div>
+    ${S.clans.length===0?`<div class="empty"><div class="empty-icon">🏅</div>Chưa có Hội nào</div>`
+    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên Hội</th><th>Hội trưởng</th><th>Thành viên</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+  </div>`;
+}
+
+window.openAddClan=function(){
+  openModal('🏅 Thêm Hội mới',
+    `<div class="fg-col"><label class="fl">Tên Hội *</label><input class="fi" id="cl-name" placeholder="Hội Hoa Hồng"></div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-v" onclick="doAddClan()">Thêm</button>`
+  );
+};
+window.doAddClan=async function(){
+  const name=document.getElementById('cl-name')?.value.trim();
+  if(!name){toast('Nhập tên Hội!','wn');return;}
+  if(S.clans.find(c=>c.name===name)){toast('Tên Hội đã tồn tại!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-v');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const newId='cl'+Date.now();
+    await fsSet('clans',newId,{name});
+    S.clans.push({id:newId,name});
+    closeModal();toast('Đã thêm Hội: '+name);
+    render();
+  } catch(e){
+    toast('Lỗi: '+e.message,'er');
+    if(btn){btn.disabled=false;btn.innerHTML='Thêm';}
+  }
+  setPulse('');
+};
+window.confirmDelClan=function(id){
+  const c=S.clans.find(x=>x.id===id);
+  const affectedLeaders=S.leaders.filter(l=>l.clanId===id);
+  const affectedMembers=S.members.filter(m=>m.clanId===id);
+  const warnParts=[];
+  if(affectedLeaders.length>0) warnParts.push(`${affectedLeaders.length} hội trưởng`);
+  if(affectedMembers.length>0) warnParts.push(`${affectedMembers.length} thành viên`);
+  const warnTxt=warnParts.length>0
+    ? `<br><span style="color:#e65100;font-size:.82rem">⚠️ ${warnParts.join(' và ')} sẽ bị xóa liên kết hội (tài khoản vẫn còn, chỉ mất clanId).</span>`
+    : '';
+  openModal('⚠️ Xóa Hội',`Xóa Hội <b>${esc(c?.name||id)}</b>?${warnTxt}`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-r" onclick="doDelClan('${id}')">Xóa</button>`);
+};
+window.doDelClan=async function(id){
+  closeModal();setPulse('loading');
+  try {
+    const affectedLeaders=S.leaders.filter(l=>l.clanId===id);
+    const affectedMembers=S.members.filter(m=>m.clanId===id);
+    const clearPromises=[
+      ...affectedLeaders.map(l=>fsSet('leaders',l.id,{clanId:''})),
+      ...affectedMembers.map(m=>fsSet('members',m.id,{clanId:'',leaderId:''})),
+    ];
+    await Promise.all([fsDel('clans',id),...clearPromises]);
+    S.clans=S.clans.filter(c=>c.id!==id);
+    affectedLeaders.forEach(l=>{l.clanId='';});
+    affectedMembers.forEach(m=>{m.clanId='';m.leaderId='';});
+    toast('Đã xóa Hội');
+  } catch(e){toast('Lỗi: '+e.message,'er');}
+  setPulse('');
+  render();
+};
+
+// ── LEADERS (ADMIN) ───────────────────────────────────────────────────────────
+function manageLeaders(){
+  const rows=S.leaders.map(l=>{
+    const clan=S.clans.find(c=>c.id===l.clanId);
+    return `<tr>
+      <td><strong>${esc(l.displayName)}</strong><div style="font-size:.72rem;color:var(--haze)">@${esc(l.username)}</div></td>
+      <td>${clan?`<span class="clan-tag">🏅 ${esc(clan.name)}</span>`:'<span style="color:var(--haze)">—</span>'}</td>
+      <td><button class="ibtn del" onclick="confirmDelLeader('${l.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-title">🏆 Quản lý Hội trưởng <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${S.leaders.length})</span>
+      <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddLeader()">+ Thêm HT</button>
+    </div>
+    ${S.leaders.length===0?`<div class="empty"><div class="empty-icon">🏆</div>Chưa có hội trưởng</div>`
+    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên / Username</th><th>Hội</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+  </div>`;
+}
+window.openAddLeader=function(){
+  const clanOpts=S.clans.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  openModal('🏆 Thêm Hội trưởng',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Tên hiển thị *</label><input class="fi" id="ld-dn" placeholder="Nguyễn Văn A"></div>
+      <div class="fg-col"><label class="fl">Username *</label><input class="fi" id="ld-un" placeholder="nguyenvana"></div>
+      <div class="fg-col"><label class="fl">Mật khẩu *</label><input class="fi" id="ld-pw" type="password" placeholder="••••••"></div>
+      <div class="fg-col"><label class="fl">Hội quản lý *</label><select class="fi" id="ld-cl">${S.clans.length?clanOpts:'<option value="">— Chưa có Hội nào —</option>'}</select></div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doAddLeader()">Thêm</button>`
+  );
+};
+window.doAddLeader=async function(){
+  const dn=document.getElementById('ld-dn')?.value.trim();
+  const un=document.getElementById('ld-un')?.value.trim();
+  const pw=document.getElementById('ld-pw')?.value;
+  const cl=document.getElementById('ld-cl')?.value;
+  if(!dn||!un||!pw){toast('Điền đủ thông tin!','wn');return;}
+  if(!cl){toast('Chọn Hội cho hội trưởng!','wn');return;}
+  if(S.leaders.find(l=>l.username===un)){toast('Username đã tồn tại!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const newId='ld'+Date.now();
+    await fsSet('leaders',newId,{username:un,password:pw,clanId:cl,displayName:dn});
+    S.leaders.push({id:newId,username:un,password:pw,clanId:cl,displayName:dn});
+    closeModal();toast('Đã thêm hội trưởng: '+dn);
+    render();
+  } catch(e){
+    toast('Lỗi: '+e.message,'er');
+    if(btn){btn.disabled=false;btn.innerHTML='Thêm';}
+  }
+  setPulse('');
+};
+window.confirmDelLeader=function(id){
+  const l=S.leaders.find(x=>x.id===id);
+  const affectedMembers=S.members.filter(m=>m.leaderId===id);
+  const warnTxt=affectedMembers.length>0
+    ? ` <br><span style="color:#e65100;font-size:.82rem">⚠️ ${affectedMembers.length} thành viên đang thuộc hội trưởng này sẽ bị xóa liên kết leaderId (vẫn còn tài khoản, chỉ mất liên kết).</span>`
+    : '';
+  openModal('⚠️ Xóa Hội trưởng',`Xóa hội trưởng <b>${esc(l?.displayName||id)}</b>?${warnTxt}`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-r" onclick="doDelLeader('${id}')">Xóa</button>`);
+};
+window.doDelLeader=async function(id){
+  closeModal();setPulse('loading');
+  try {
+    // Clear leaderId of members linked to this leader
+    const affectedMembers=S.members.filter(m=>m.leaderId===id);
+    const clearPromises=affectedMembers.map(m=>fsSet('members',m.id,{leaderId:''}));
+    await Promise.all([fsDel('leaders',id),fsDel('ticks',id),...clearPromises]);
+    S.leaders=S.leaders.filter(l=>l.id!==id);
+    delete S.ticks[id];
+    affectedMembers.forEach(m=>{m.leaderId='';});
+    toast('Đã xóa hội trưởng');
+  }
+  catch(e){toast('Lỗi: '+e.message,'er');}
+  setPulse('');
+  render();
+};
+
+// ── CLOUDINARY UPLOAD ─────────────────────────────────────────────────────────
+window.triggerImgUpload=function(){
+  document.getElementById('ef-img-file')?.click();
+};
+window.onImgFileChange=async function(input){
+  const file=input.files[0];
+  if(!file) return;
+  if(file.size>5*1024*1024){toast('Ảnh tối đa 5MB!','wn');return;}
+  const preview=document.getElementById('ef-img-preview');
+  const urlInput=document.getElementById('ef-img');
+  const uploadBtn=document.getElementById('ef-upload-btn');
+  const useOcr=document.getElementById('ef-ocr-toggle')?.checked;
+  if(uploadBtn){uploadBtn.disabled=true;uploadBtn.innerHTML='<div class="sp"></div> Đang upload...';}
+  try {
+    const fd=new FormData();
+    fd.append('file',file);
+    fd.append('upload_preset',CLOUDINARY_PRESET);
+    if(useOcr) fd.append('ocr','adv_ocr');
+    const res=await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`,{method:'POST',body:fd});
+    const data=await res.json();
+    if(data.secure_url){
+      urlInput.value=data.secure_url;
+      if(preview){preview.src=data.secure_url;preview.style.display='block';}
+      if(useOcr){
+        // Extract OCR text from Cloudinary response
+        const ocrText=data.info?.ocr?.adv_ocr?.data?.[0]?.fullTextAnnotation?.text||'';
+        const nameInput=document.getElementById('ef-name');
+        if(ocrText&&nameInput&&!nameInput.value.trim()){
+          // Take first non-empty line as flower name
+          const firstLine=ocrText.split('\n').map(l=>l.trim()).find(l=>l.length>1)||'';
+          if(firstLine){nameInput.value=firstLine;toast('🤖 AI nhận diện: '+firstLine);}
+          else toast('Không nhận diện được chữ trong ảnh','wn');
+        } else if(!ocrText){
+          toast('Không nhận diện được chữ trong ảnh','wn');
+        }
+        toast('Upload ảnh thành công! 🖼️');
+      } else {
+        toast('Upload ảnh thành công! 🖼️');
+      }
+    } else {
+      toast('Upload thất bại: '+(data.error?.message||'Lỗi không xác định'),'er');
+    }
+  } catch(e){toast('Lỗi upload: '+e.message,'er');}
+  if(uploadBtn){uploadBtn.disabled=false;uploadBtn.innerHTML='🖼️ Chọn ảnh';}
+};
+
+// ── FLOWERS (ADMIN) ────────────────────────────────────────────────────────────
+function manageFlowers(){
+  const rows=S.flowers.map(f=>{
+    const cv=col(f.color);
+    const own=Object.values(S.ticks).filter(ids=>ids.includes(f.id)).length;
+    return `<tr>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cv.h};margin-right:5px"></span><strong>${esc(f.name)}</strong></td>
+      <td style="font-size:.78rem;color:var(--mist)">${cv.l}</td>
+      <td style="font-size:.78rem;color:var(--mist)">${own} người</td>
+      <td>
+        <button class="ibtn" onclick="openEditFlower('${f.id}')">✏️</button>
+        <button class="ibtn del" onclick="confirmDelFlower('${f.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-title">🌸 Quản lý hoa <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${S.flowers.length})</span>
+      <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddFlower()">+ Thêm hoa</button>
+    </div>
+    ${S.flowers.length===0?`<div class="empty"><div class="empty-icon">🌱</div>Chưa có hoa nào</div>`
+    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên</th><th>Màu</th><th>Sở hữu</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+  </div>`;
+}
+window.openAddFlower=function(){
+  S._editFlowerId=null;S._editColor='trang';
+  const sw=COLS.map(c=>`<div class="csw ${c.k==='trang'?'on':''}" style="background:${c.h}" title="${c.l}" onclick="pickColor('${c.k}')" id="sw-${c.k}"></div>`).join('');
+  openModal('🌸 Thêm hoa mới',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Tên hoa *</label><input class="fi" id="ef-name" placeholder="Hoa hồng nhung"></div>
+      <div class="fg-col"><label class="fl">Màu</label><div class="cpick">${sw}</div></div>
+      <div class="fg-col">
+        <label class="fl">Ảnh</label>
+        <input type="file" id="ef-img-file" accept="image/*" style="display:none" onchange="onImgFileChange(this)">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="fi" id="ef-img" placeholder="https://... hoặc chọn ảnh từ máy" style="flex:1">
+          <button class="btn btn-o btn-sm" id="ef-upload-btn" type="button" onclick="triggerImgUpload()">🖼️ Chọn ảnh</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:7px;margin-top:8px;cursor:pointer;user-select:none;font-size:.8rem;color:var(--forest2)">
+          <input type="checkbox" id="ef-ocr-toggle" style="width:15px;height:15px;accent-color:var(--leaf);cursor:pointer">
+          🤖 Dùng AI nhận diện tên từ ảnh
+        </label>
+        <img id="ef-img-preview" src="" style="display:none;margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
+      </div>
+      <div class="fg-col"><label class="fl">Thứ tự</label><input class="fi" id="ef-sort" type="number" value="0"></div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doSaveFlower()">💾 Lưu</button>`
+  );
+};
+window.openEditFlower=function(id){
+  const f=S.flowers.find(x=>x.id===id);if(!f)return;
+  S._editFlowerId=id;S._editColor=f.color||'trang';
+  const sw=COLS.map(c=>`<div class="csw ${c.k===S._editColor?'on':''}" style="background:${c.h}" title="${c.l}" onclick="pickColor('${c.k}')" id="sw-${c.k}"></div>`).join('');
+  openModal('✏️ Sửa hoa',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Tên hoa *</label><input class="fi" id="ef-name" value="${esc(f.name)}"></div>
+      <div class="fg-col"><label class="fl">Màu</label><div class="cpick">${sw}</div></div>
+      <div class="fg-col">
+        <label class="fl">Ảnh</label>
+        <input type="file" id="ef-img-file" accept="image/*" style="display:none" onchange="onImgFileChange(this)">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="fi" id="ef-img" value="${esc(f.imgUrl)}" placeholder="https://... hoặc chọn ảnh từ máy" style="flex:1">
+          <button class="btn btn-o btn-sm" id="ef-upload-btn" type="button" onclick="triggerImgUpload()">🖼️ Chọn ảnh</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:7px;margin-top:8px;cursor:pointer;user-select:none;font-size:.8rem;color:var(--forest2)">
+          <input type="checkbox" id="ef-ocr-toggle" style="width:15px;height:15px;accent-color:var(--leaf);cursor:pointer">
+          🤖 Dùng AI nhận diện tên từ ảnh
+        </label>
+        <img id="ef-img-preview" src="${esc(f.imgUrl)}" style="display:${f.imgUrl?'block':'none'};margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
+      </div>
+      <div class="fg-col"><label class="fl">Thứ tự</label><input class="fi" id="ef-sort" type="number" value="${f.sortOrder}"></div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doSaveFlower()">💾 Lưu</button>`
+  );
+};
+window.pickColor=function(k){
+  S._editColor=k;
+  document.querySelectorAll('.csw').forEach(el=>el.classList.remove('on'));
+  const sw=document.getElementById('sw-'+k);
+  if(sw) sw.classList.add('on');
+};
+window.doSaveFlower=async function(){
+  const name=document.getElementById('ef-name')?.value.trim();
+  if(!name){toast('Nhập tên hoa!','wn');return;}
+  const imgUrl=document.getElementById('ef-img')?.value.trim()||'';
+  const sortOrder=Number(document.getElementById('ef-sort')?.value)||0;
+  const color=S._editColor||'trang';
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    if(S._editFlowerId){
+      await fsSet('flowers',S._editFlowerId,{name,color,imgUrl,sortOrder});
+      const f=S.flowers.find(x=>x.id===S._editFlowerId);
+      if(f){f.name=name;f.color=color;f.imgUrl=imgUrl;f.sortOrder=sortOrder;}
+      toast('Đã cập nhật hoa');
+    } else {
+      const newId='f'+Date.now();
+      await fsSet('flowers',newId,{name,color,imgUrl,sortOrder});
+      S.flowers.push({id:newId,name,color,imgUrl,sortOrder});
+      toast('Đã thêm hoa 🌸');
+    }
+    S.flowers.sort((a,b)=>a.sortOrder-b.sortOrder);
+    closeModal();render();
+  } catch(e){
+    toast('Lỗi: '+e.message,'er');
+    if(btn){btn.disabled=false;btn.innerHTML='💾 Lưu';}
+  }
+  setPulse('');
+};
+window.confirmDelFlower=function(id){
+  const f=S.flowers.find(x=>x.id===id);
+  openModal('⚠️ Xóa hoa',`Xóa <b>${esc(f?.name||id)}</b>?`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-r" onclick="doDelFlower('${id}')">Xóa</button>`);
+};
+window.doDelFlower=async function(id){
+  closeModal();setPulse('loading');
+  try {
+    await fsDel('flowers',id);
+    S.flowers=S.flowers.filter(f=>f.id!==id);
+    Object.keys(S.ticks).forEach(k=>{S.ticks[k]=(S.ticks[k]||[]).filter(fid=>fid!==id);});
+    toast('Đã xóa hoa');
+  }
+  catch(e){toast('Lỗi: '+e.message,'er');}
+  setPulse('');render();
+};
+
+// ── ALL MEMBERS (ADMIN) ───────────────────────────────────────────────────────
+function manageAllMembers(){
+  const rows=S.members.map(m=>{
+    const clan=S.clans.find(c=>c.id===m.clanId);
+    return `<tr>
+      <td><strong>${esc(m.displayName)}</strong>${m.alias?`<span style="font-size:.74rem;color:var(--mist);margin-left:6px">${esc(m.alias)}</span>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
+      <td>${clan?`<span class="clan-tag">🏅 ${esc(clan.name)}</span>`:'<span style="color:var(--haze)">—</span>'}</td>
+      <td style="font-size:.78rem;color:var(--mist)">${(S.ticks[m.id]||[]).length} hoa</td>
+      <td><button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+  return `<div class="card">
+    <div class="card-title">👥 Tất cả thành viên <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${S.members.length})</span></div>
+    ${S.members.length===0?`<div class="empty"><div class="empty-icon">👤</div>Chưa có thành viên</div>`
+    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên</th><th>Hội</th><th>Hoa</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+  </div>`;
+}
+
+// ── CLAN MEMBERS (LEADER) ─────────────────────────────────────────────────────
+function manageClanMembers(){
+  const clanId=myClanId();
+  const clanName=myClanName();
+  const myMembers=S.members.filter(m=>m.clanId===clanId);
+  const rows=myMembers.map(m=>`<tr>
+    <td><strong>${esc(m.displayName)}</strong>${m.alias?`<span style="font-size:.74rem;color:var(--mist);margin-left:6px">${esc(m.alias)}</span>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
+    <td style="font-size:.78rem;color:var(--mist)">${m.year||'—'}</td>
+    <td style="font-size:.78rem;color:var(--mist)">${(S.ticks[m.id]||[]).length} hoa</td>
+    <td><button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
+  </tr>`).join('');
+  return `<div class="card">
+    <div class="card-title">👥 Thành viên Hội ${esc(clanName)} <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${myMembers.length})</span>
+      <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddMember()">+ Thêm TV</button>
+    </div>
+    ${myMembers.length===0?`<div class="empty"><div class="empty-icon">👤</div>Chưa có thành viên</div>`
+    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên</th><th>Năm sinh</th><th>Hoa</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+  </div>`;
+}
+
+window.openAddMember=function(){
+  // If leader: auto-assign to their clan. If admin: can pick clan.
+  const clanSelect = isAdmin()
+    ? `<div class="fg-col"><label class="fl">Hội *</label><select class="fi" id="am-cl">${S.clans.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>`
+    : `<input type="hidden" id="am-cl" value="${myClanId()}">`;
+  openModal('👤 Thêm thành viên',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Tên hiển thị *</label><input class="fi" id="am-d" placeholder="Khánh Ly"></div>
+      <div class="fg-col"><label class="fl">Username *</label><input class="fi" id="am-u" placeholder="khanhly"></div>
+      <div class="fg-col"><label class="fl">Mật khẩu *</label><input class="fi" id="am-p" type="password" placeholder="••••••"></div>
+      <div class="fg-col"><label class="fl">Tên game / bí danh</label><input class="fi" id="am-a" placeholder="Mẫn"></div>
+      <div class="fg-col"><label class="fl">Năm sinh</label><input class="fi" id="am-y" placeholder="1991" maxlength="4" type="number"></div>
+      ${clanSelect}
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doAddMember()">Thêm</button>`
+  );
+};
+window.doAddMember=async function(){
+  const d=document.getElementById('am-d')?.value.trim();
+  const u=document.getElementById('am-u')?.value.trim();
+  const p=document.getElementById('am-p')?.value;
+  const a=document.getElementById('am-a')?.value.trim()||'';
+  const y=document.getElementById('am-y')?.value.trim()||'';
+  const cl=document.getElementById('am-cl')?.value;
+  if(!d||!u||!p){toast('Điền đủ thông tin bắt buộc!','wn');return;}
+  if(!cl){toast('Chọn Hội!','wn');return;}
+  if(S.members.find(m=>m.username===u)){toast('Username đã tồn tại!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const leaderId = isLeader() ? S.session.id : '';
+    const newId='mb'+Date.now();
+    await fsSet('members',newId,{username:u,password:p,displayName:d,alias:a,year:y,clanId:cl,leaderId});
+    S.members.push({id:newId,username:u,password:p,clanId:cl,leaderId,displayName:d,alias:a,year:y});
+    closeModal();toast('Đã thêm: '+d);
+    render();
+  } catch(e){
+    toast('Lỗi: '+e.message,'er');
+    if(btn){btn.disabled=false;btn.innerHTML='Thêm';}
+  }
+  setPulse('');
+};
+window.confirmDelMember=function(id){
+  const m=S.members.find(x=>x.id===id);
+  openModal('⚠️ Xóa thành viên',`Xóa <b>${esc(m?.displayName||id)}</b>? Dữ liệu tick cũng bị xóa.`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-r" onclick="doDelMember('${id}')">Xóa</button>`);
+};
+window.doDelMember=async function(id){
+  closeModal();setPulse('loading');
+  try {
+    await Promise.all([fsDel('members',id),fsDel('ticks',id)]);
+    S.members=S.members.filter(m=>m.id!==id);
+    delete S.ticks[id];
+    toast('Đã xóa thành viên');
+  } catch(e){toast('Lỗi: '+e.message,'er');}
+  setPulse('');
+  render();
+};
+
+// ─── SETTINGS PAGE (ADMIN ONLY) ──────────────────────────────────────────────
+function pageSettings(){
+  if(!isAdmin()) return `<div class="empty"><div class="empty-icon">🔒</div>Chỉ Admin mới truy cập được</div>`;
+  const hasConfig=!!loadSavedConfig();
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-title">🔥 Firebase Config</div>
+    ${hasConfig
+      ?`<p style="font-size:.82rem;color:var(--mist);margin-bottom:12px">Đang kết nối Firebase. Paste config mới để thay thế.</p>`
+      :`<p style="font-size:.82rem;color:var(--mist);margin-bottom:12px">Paste Firebase config JSON vào đây.</p>`}
+    <textarea class="fi fb-textarea" id="fb-cfg" placeholder='{"apiKey":"...","projectId":"..."}'>${hasConfig?JSON.stringify(loadSavedConfig(),null,2):''}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-g" onclick="saveFirebaseConfig()">💾 Lưu & Kết nối</button>
+      ${hasConfig?`<button class="btn btn-r btn-sm" onclick="confirmReset()">🔌 Ngắt kết nối</button>`:''}
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <button class="btn btn-g btn-sm" onclick="retry()">🔄 Tải lại dữ liệu</button>
+  </div>
+  <div class="card" style="margin-top:14px;border-left:3px solid var(--clan)">
+    <div class="card-title">📦 Sao chép dữ liệu sang Firebase khác</div>
+    <p style="font-size:.82rem;color:var(--mist);margin-bottom:10px">Paste config JSON của Firebase đích vào ô bên dưới rồi nhấn sao chép. Dữ liệu tk1 sẽ được ghi đè sang Firebase đó.</p>
+    <textarea class="fi fb-textarea" id="copy-target-cfg" placeholder='{"apiKey":"...","projectId":"..."}'></textarea>
+    <div id="copy-log" style="display:none;background:var(--sage);border-radius:10px;padding:12px;font-size:.78rem;color:var(--forest2);margin:10px 0;line-height:1.9"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn" style="background:var(--clan);color:#fff" onclick="copyToTarget()">📤 Bắt đầu sao chép</button>
+    </div>
+  </div>`;
+}
+window.saveFirebaseConfig=async function(){
+  const raw=document.getElementById('fb-cfg')?.value.trim();
+  if(!raw){toast('Paste config JSON vào!','wn');return;}
+  let cfg;
+  try{cfg=JSON.parse(raw);}catch(e){toast('JSON không hợp lệ','er');return;}
+  if(!cfg.projectId){toast('Thiếu projectId!','wn');return;}
+  localStorage.setItem(CK_FB,JSON.stringify(cfg));
+  const ok=initFirebase(cfg);
+  if(!ok){toast('Firebase thất bại','er');return;}
+  toast('Đã kết nối 🔥');
+  await loadAll();render();
+};
+window.retry=async function(){setPulse('loading');await loadAll(true);render();};
+window.confirmReset=function(){
+  openModal('🔌 Ngắt kết nối','Xóa cấu hình Firebase?',
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-r" onclick="doReset()">Ngắt</button>`);
+};
+window.doReset=function(){
+  closeModal();
+  localStorage.removeItem(CK_FB);
+  db=null;
+  S={...S,loaded:false,err:null,flowers:[],clans:[],leaders:[],members:[],ticks:{},page:'flowers',msel:new Set(),proxyMemberId:null,_lastTickSubject:null,tcolor:'all',tq:'',fcolor:'all',fq:''};
+  render();
+};
+
+// ─── COPY TO TARGET FIREBASE ────────────────────────────────────────────────
+async function doCopyToDb(targetDb, logEl){
+  const log=(msg)=>{ logEl.style.display=''; logEl.innerHTML+=msg+'<br>'; };
+  const cols=['flowers','clans','leaders','members','ticks'];
+  for(const colName of cols){
+    log(`📂 Đang sao chép <strong>${colName}</strong>...`);
+    const snap=await getDocs(collection(db,colName));
+    let count=0;
+    for(const d of snap.docs){
+      await setDoc(doc(targetDb,colName,d.id),d.data());
+      count++;
+    }
+    log(`&nbsp;&nbsp;↳ ${count} bản ghi ✓`);
+  }
+  log('🎉 <strong>Hoàn tất!</strong>');
+}
+
+window.copyToTarget=async function(){
+  const logEl=document.getElementById('copy-log');
+  logEl.innerHTML='';
+  const log=(msg)=>{ logEl.style.display=''; logEl.innerHTML+=msg+'<br>'; };
+  const raw=document.getElementById('copy-target-cfg')?.value.trim();
+  if(!raw){toast('Paste config JSON vào!','wn');return;}
+  let cfg;
+  try{cfg=JSON.parse(raw);}catch(e){toast('JSON không hợp lệ','er');return;}
+  if(!cfg.projectId){toast('Thiếu projectId!','wn');return;}
+  log('🔌 Đang kết nối Firebase đích...');
+  try {
+    const existing=_fbApps().find(a=>a.name==='hoavien-copy-target');
+    const appT=existing?_fbGetApp('hoavien-copy-target'):_fbInit(cfg,'hoavien-copy-target');
+    const dbT=_fbGetFirestore(appT);
+    log('✅ Kết nối thành công → <strong>'+cfg.projectId+'</strong>');
+    await doCopyToDb(dbT,logEl);
+  } catch(e){ log('❌ Lỗi: '+e.message); }
+};
+
+
+
+// ─── SETUP SCREEN ────────────────────────────────────────────────────────────
+function renderSetup(){
+  return `<div class="setup">
+    <h2>🌺 Chào mừng đến Hoa Viên</h2>
+    <p>Kết nối Firebase để lưu dữ liệu.</p>
+    <div class="setup-steps">
+      <div class="setup-step"><div class="setup-num">1</div><div class="setup-text">Vào <strong>console.firebase.google.com</strong> → tạo project mới.</div></div>
+      <div class="setup-step"><div class="setup-num">2</div><div class="setup-text"><em>Project settings</em> → <em>Your apps</em> → icon <strong>&lt;/&gt;</strong> → đăng ký app web.</div></div>
+      <div class="setup-step"><div class="setup-num">3</div><div class="setup-text">Copy đoạn <code>firebaseConfig = { ... }</code> và paste vào ô bên dưới.</div></div>
+      <div class="setup-step"><div class="setup-num">4</div><div class="setup-text"><em>Firestore Database</em> → <em>Create database</em> → <strong>Start in test mode</strong>.</div></div>
+    </div>
+    <div class="fg-col" style="margin-bottom:12px">
+      <label class="fl">Firebase Config JSON</label>
+      <textarea class="fi fb-textarea" id="setup-cfg" placeholder='{"apiKey":"...","projectId":"..."}'></textarea>
+    </div>
+    <button class="btn btn-g" onclick="setupFirebase()" style="width:100%;justify-content:center">🔥 Kết nối Firebase</button>
+  </div>`;
+}
+window.setupFirebase=async function(){
+  const raw=document.getElementById('setup-cfg')?.value.trim();
+  if(!raw){toast('Paste config JSON vào!','wn');return;}
+  let cfg;
+  try{cfg=JSON.parse(raw);}catch(e){toast('JSON không hợp lệ!','er');return;}
+  if(!cfg.projectId){toast('Thiếu projectId!','wn');return;}
+  localStorage.setItem(CK_FB,JSON.stringify(cfg));
+  const ok=initFirebase(cfg);
+  if(!ok){toast('Khởi tạo Firebase thất bại','er');return;}
+  toast('Đã kết nối 🔥');
+  render();await loadAll();render();
+};
+
+function renderErr(){
+  return `<div class="errbox">
+    <h3>⚠️ Không tải được dữ liệu</h3>
+    <p>${esc(S.err)}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-g btn-sm" onclick="retry()">🔄 Thử lại</button>
+      <button class="btn btn-o btn-sm" onclick="goto('settings')">⚙️ Cài đặt</button>
+    </div>
+  </div>`;
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+async function init(){
+  const cfg=FIREBASE_CONFIG||loadSavedConfig();
+  if(cfg){
+    const ok=initFirebase(cfg);
+    if(ok){ render(); await loadAll(); render(); return; }
+  }
+  render();
+}
+init();
+</script>
+</body>
+</html>
