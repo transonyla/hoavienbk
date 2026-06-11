@@ -301,8 +301,6 @@ import {
   collection, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   doc, query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-// expose Firebase refs để dùng cho chức năng sao chép sang Firebase đích
-const _fbInit=initializeApp, _fbApps=getApps, _fbGetApp=getApp, _fbGetFirestore=getFirestore;
 
 // ─── FIREBASE CONFIG ─────────────────────────────────────────────────────────
 const FIREBASE_CONFIG = {
@@ -546,13 +544,23 @@ async function fsGetAll(colName){
   return snap.docs.map(d=>({_id:d.id,...d.data()}));
 }
 
+// ⚠️ Đây là database DỰ PHÒNG (sao chép từ database gốc) — chỉ dùng để xem,
+// KHÔNG cho phép ghi/xóa dữ liệu, kể cả admin.
+const READONLY_MODE = true;
+function blockWrite(){
+  toast('🚫 Database này chỉ ở chế độ xem (dự phòng) — không thể ghi/xóa dữ liệu.','er');
+  throw new Error('READONLY_MODE: ghi/xóa dữ liệu đã bị vô hiệu hóa trên database dự phòng.');
+}
+
 // Ghi vào db1 (Firebase 1)
 async function fsSet(colName,docId,data){
+  if(READONLY_MODE) blockWrite();
   await setDoc(doc(db,colName,docId),data,{merge:true});
 }
 
 // Xóa khỏi db1
 async function fsDel(colName,docId){
+  if(READONLY_MODE) blockWrite();
   await deleteDoc(doc(db,colName,docId));
 }
 
@@ -1613,15 +1621,6 @@ function pageSettings(){
   </div>
   <div class="card" style="margin-top:14px">
     <button class="btn btn-g btn-sm" onclick="retry()">🔄 Tải lại dữ liệu</button>
-  </div>
-  <div class="card" style="margin-top:14px;border-left:3px solid var(--clan)">
-    <div class="card-title">📦 Sao chép dữ liệu sang Firebase khác</div>
-    <p style="font-size:.82rem;color:var(--mist);margin-bottom:10px">Paste config JSON của Firebase đích vào ô bên dưới rồi nhấn sao chép. Dữ liệu tk1 sẽ được ghi đè sang Firebase đó.</p>
-    <textarea class="fi fb-textarea" id="copy-target-cfg" placeholder='{"apiKey":"...","projectId":"..."}'></textarea>
-    <div id="copy-log" style="display:none;background:var(--sage);border-radius:10px;padding:12px;font-size:.78rem;color:var(--forest2);margin:10px 0;line-height:1.9"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="btn" style="background:var(--clan);color:#fff" onclick="copyToTarget()">📤 Bắt đầu sao chép</button>
-    </div>
   </div>`;
 }
 window.saveFirebaseConfig=async function(){
@@ -1648,43 +1647,6 @@ window.doReset=function(){
   S={...S,loaded:false,err:null,flowers:[],clans:[],leaders:[],members:[],ticks:{},page:'flowers',msel:new Set(),proxyMemberId:null,_lastTickSubject:null,tcolor:'all',tq:'',fcolor:'all',fq:''};
   render();
 };
-
-// ─── COPY TO TARGET FIREBASE ────────────────────────────────────────────────
-async function doCopyToDb(targetDb, logEl){
-  const log=(msg)=>{ logEl.style.display=''; logEl.innerHTML+=msg+'<br>'; };
-  const cols=['flowers','clans','leaders','members','ticks'];
-  for(const colName of cols){
-    log(`📂 Đang sao chép <strong>${colName}</strong>...`);
-    const snap=await getDocs(collection(db,colName));
-    let count=0;
-    for(const d of snap.docs){
-      await setDoc(doc(targetDb,colName,d.id),d.data());
-      count++;
-    }
-    log(`&nbsp;&nbsp;↳ ${count} bản ghi ✓`);
-  }
-  log('🎉 <strong>Hoàn tất!</strong>');
-}
-
-window.copyToTarget=async function(){
-  const logEl=document.getElementById('copy-log');
-  logEl.innerHTML='';
-  const log=(msg)=>{ logEl.style.display=''; logEl.innerHTML+=msg+'<br>'; };
-  const raw=document.getElementById('copy-target-cfg')?.value.trim();
-  if(!raw){toast('Paste config JSON vào!','wn');return;}
-  let cfg;
-  try{cfg=JSON.parse(raw);}catch(e){toast('JSON không hợp lệ','er');return;}
-  if(!cfg.projectId){toast('Thiếu projectId!','wn');return;}
-  log('🔌 Đang kết nối Firebase đích...');
-  try {
-    const existing=_fbApps().find(a=>a.name==='hoavien-copy-target');
-    const appT=existing?_fbGetApp('hoavien-copy-target'):_fbInit(cfg,'hoavien-copy-target');
-    const dbT=_fbGetFirestore(appT);
-    log('✅ Kết nối thành công → <strong>'+cfg.projectId+'</strong>');
-    await doCopyToDb(dbT,logEl);
-  } catch(e){ log('❌ Lỗi: '+e.message); }
-};
-
 
 
 // ─── SETUP SCREEN ────────────────────────────────────────────────────────────
