@@ -221,6 +221,38 @@ code{background:var(--sage);padding:1px 6px;border-radius:5px;font-size:.82em;co
 .sec-div-line{flex:1;height:1px;background:var(--bd)}
 .sec-div-label{font-size:.72rem;font-weight:700;color:var(--mist);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
 
+/* ─── FLOWER LABEL BADGE (góc phải ảnh) ────────────────────────────────── */
+.fc-label{
+  position:absolute;bottom:7px;right:7px;
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.72rem;font-weight:800;color:#fff;
+  border:2px solid;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  line-height:1;
+  box-shadow:0 2px 8px rgba(0,0,0,.22);
+  pointer-events:none;
+}
+.zoom-label{
+  position:absolute;bottom:12px;right:12px;
+  width:42px;height:42px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.88rem;font-weight:800;color:#fff;
+  border:2.5px solid;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  box-shadow:0 3px 12px rgba(0,0,0,.25);
+  pointer-events:none;
+}
+.mf-label{
+  position:absolute;bottom:5px;right:5px;
+  width:26px;height:26px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.62rem;font-weight:800;color:#fff;
+  border:1.5px solid;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  pointer-events:none;
+}
+
 @media(max-width:480px){
   .fg{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
   .fg-row{grid-template-columns:1fr}
@@ -301,16 +333,17 @@ import {
   collection, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   doc, query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+// expose Firebase refs để dùng cho chức năng sao chép sang Firebase đích
+const _fbInit=initializeApp, _fbApps=getApps, _fbGetApp=getApp, _fbGetFirestore=getFirestore;
 
 // ─── FIREBASE CONFIG ─────────────────────────────────────────────────────────
 const FIREBASE_CONFIG = {
-  "apiKey": "AIzaSyAsccZgD8tFhSq_YPLtNSHThi1fikOvk80",
-  "authDomain": "hoavien2-d1ecd.firebaseapp.com",
-  "projectId": "hoavien2-d1ecd",
-  "storageBucket": "hoavien2-d1ecd.firebasestorage.app",
-  "messagingSenderId": "562733700961",
-  "appId": "1:562733700961:web:d420a6cbe27d83a8245720",
-  "measurementId": "G-DSKXE8JC1P"
+  "apiKey": "AIzaSyD_iS-3bNySPRwF1x0XFqV6Vgr2R6_bI1c",
+  "authDomain": "hoavien-b5874.firebaseapp.com",
+  "projectId": "hoavien-b5874",
+  "storageBucket": "hoavien-b5874.firebasestorage.app",
+  "messagingSenderId": "269916169212",
+  "appId": "1:269916169212:web:3e6ebbd0d41299ffdfc879"
 };
 
 const CK_FB    = 'hv4_fb_config';
@@ -321,7 +354,27 @@ const ADMIN_PW_HASH = '67cec4b5d00d79ebebcffdb35234c91c785dca6d03235137aecb44d04
 const CLOUDINARY_CLOUD = 'dcjv64yqh';
 const CLOUDINARY_PRESET = 'Hoavien';
 
-// ─── (đã gỡ Firebase 2 song song) ─────────────────────────────────────────
+// ─── FIREBASE 2 CONFIG (db2 — ghi song song) ────────────────────────────────
+const FIREBASE_CONFIG_DB2 = {
+  "apiKey": "AIzaSyAsccZgD8tFhSq_YPLtNSHThi1fikOvk80",
+  "authDomain": "hoavien2-d1ecd.firebaseapp.com",
+  "projectId": "hoavien2-d1ecd",
+  "storageBucket": "hoavien2-d1ecd.firebasestorage.app",
+  "messagingSenderId": "562733700961",
+  "appId": "1:562733700961:web:d420a6cbe27d83a8245720",
+  "measurementId": "G-DSKXE8JC1P"
+};
+
+// ─── FIREBASE 3 CONFIG (db3 — ghi song song) ────────────────────────────────
+const FIREBASE_CONFIG_DB3 = {
+  "apiKey": "AIzaSyD8gxJfdhJPsOXyg-_j5LJL5hKQYHshC24",
+  "authDomain": "hoavien3-e45d9.firebaseapp.com",
+  "projectId": "hoavien3-e45d9",
+  "storageBucket": "hoavien3-e45d9.firebasestorage.app",
+  "messagingSenderId": "600420237860",
+  "appId": "1:600420237860:web:1b14495fcdbfb148444eb1",
+  "measurementId": "G-ENCRLWQ1H8"
+};
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 const COLS = [
@@ -337,6 +390,36 @@ const col = k => CM[k]||{k:'trang',l:k||'?',h:'#94a3b8'};
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let db = null;
+let db2 = null; // Firebase 2 — ghi song song
+let db3 = null; // Firebase 3 — ghi song song
+
+// ─── TIME-SLOT READ BALANCER (30 phút cố định) ───────────────────────────────
+// Mỗi slot 30 phút, tất cả user trong cùng slot đều đọc từ cùng 1 DB.
+// Slot % 3 === 0 → DB1 | slot % 3 === 1 → DB2 | slot % 3 === 2 → DB3
+// Hoàn toàn độc lập với số lần reload/user — chỉ phụ thuộc vào thời gian thực.
+const READ_SLOT_MS = 30 * 60 * 1000; // 30 phút
+function getCurrentSlot(){
+  return Math.floor(Date.now() / READ_SLOT_MS);
+}
+// Trạng thái kết nối thực tế của từng db (dùng cho UI)
+let _dbStatus = {
+  db1: { read: false, write: false, err: null },
+  db2: { read: false, write: false, err: null },
+  db3: { read: false, write: false, err: null },
+};
+function getReadDb(){
+  const slot = getCurrentSlot();
+  const mod = slot % 3;
+  // Fallback an toàn: nếu DB được chọn chưa sẵn sàng → dùng DB1
+  if(mod === 1 && db2) return { readDb: db2, label: 'DB2', slot };
+  if(mod === 2 && db3) return { readDb: db3, label: 'DB3', slot };
+  return { readDb: db, label: 'DB1', slot };
+}
+function updateDbStatusUI(){
+  const el = document.getElementById('db-status-panel');
+  if(!el) return;
+  el.innerHTML = buildDbStatusHtml();
+}
 let S = {
   flowers:[],
   clans:[],      // [{id,name}]
@@ -351,6 +434,7 @@ let S = {
   _editFlowerId:null, _editColor:'trang',
   proxyMemberId: null,
   _lastTickSubject: null,
+  _readDbLabel: 'DB1', // DB đang được đọc hiện tại
 };
 
 // restore session
@@ -366,6 +450,18 @@ function initFirebase(config){
     const app = existing ? getApp('hoavien') : initializeApp(config,'hoavien');
     db = getFirestore(app);
     enableIndexedDbPersistence(db).catch(()=>{});
+    // ── Khởi tạo db2 song song ──────────────────────────────────────────────
+    try {
+      const existing2 = getApps().find(a=>a.name==='hoavien2');
+      const app2 = existing2 ? getApp('hoavien2') : initializeApp(FIREBASE_CONFIG_DB2,'hoavien2');
+      db2 = getFirestore(app2);
+    } catch(e2){ console.warn('db2 init failed:',e2); db2=null; }
+    // ── Khởi tạo db3 song song ──────────────────────────────────────────────
+    try {
+      const existing3 = getApps().find(a=>a.name==='hoavien3');
+      const app3 = existing3 ? getApp('hoavien3') : initializeApp(FIREBASE_CONFIG_DB3,'hoavien3');
+      db3 = getFirestore(app3);
+    } catch(e3){ console.warn('db3 init failed:',e3); db3=null; }
     return true;
   } catch(e){ console.error(e); return false; }
 }
@@ -409,7 +505,7 @@ window.openFlowerZoom=function(fid){
   const cv=col(f.color);
   const card=document.getElementById('zoomCard');
   card.innerHTML=`<button class="zoom-close" onclick="event.stopPropagation();closeZoom()">✕</button>
-    <div class="zoom-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}">`:`<span class="zoom-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}</div>
+    <div class="zoom-img" style="position:relative">${f.imgUrl?`<img src="${esc(f.imgUrl)}">`:`<span class="zoom-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'lg')}</div>
     <div class="zoom-body">
       <div class="zoom-name" style="color:${cv.h}">${esc(f.name)}</div>
       <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -441,7 +537,7 @@ window.openMemberFlowers=function(memberId,role){
       const cv=col(ck);
       return `<div class="mf-grp"><div class="mf-grp-bar" style="background:${cv.h}"></div><h3 style="color:${cv.h}">${cv.l}</h3><span class="mf-grp-cnt">${flowers.length}</span></div>
       <div class="mf-grid">${flowers.map(f=>`<div class="mf-fc">
-        <div class="mf-fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="mf-fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}</div>
+        <div class="mf-fc-img" style="position:relative">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="mf-fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'sm')}</div>
         <div class="mf-fc-name" style="color:${cv.h}">${esc(f.name)}</div>
       </div>`).join('')}</div>`;
     }).join('');
@@ -503,6 +599,17 @@ window.setTq=function(v){
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+// Helper: tạo nhãn tròn cho card hoa (size: 'sm'=mf-label, 'md'=fc-label, 'lg'=zoom-label)
+function labelBadgeHtml(f, size='md'){
+  if(!f.label) return '';
+  const cv=col(f.color);
+  const h=cv.h;
+  // nền = màu hoa + alpha ~40%
+  const bg=h+'66'; // hex alpha 40%
+  const cls=size==='lg'?'zoom-label':size==='sm'?'mf-label':'fc-label';
+  return `<div class="${cls}" style="background:${bg};border-color:${h}">${esc(f.label)}</div>`;
+}
+
 // Compute which clans/members own a given flower (scoped to current user's clan if member/leader)
 function getFlowerOwnership(fid){
   const clanSet=new Set();
@@ -538,30 +645,52 @@ function ownershipTagsHtml(fid){
 
 // ─── FIRESTORE CRUD ──────────────────────────────────────────────────────────
 
-// Đọc luôn từ db1 (Firebase 1)
-async function fsGetAll(colName){
-  const snap=await getDocs(collection(db,colName));
+// Đọc từ readDb được truyền vào (DB1 hoặc DB2 luân phiên)
+async function fsGetAll(colName, readDb){
+  const snap=await getDocs(collection(readDb,colName));
   return snap.docs.map(d=>({_id:d.id,...d.data()}));
 }
 
-// ⚠️ Đây là database DỰ PHÒNG (sao chép từ database gốc) — chỉ dùng để xem,
-// KHÔNG cho phép ghi/xóa dữ liệu, kể cả admin.
-const READONLY_MODE = true;
-function blockWrite(){
-  toast('🚫 Database này chỉ ở chế độ xem (dự phòng) — không thể ghi/xóa dữ liệu.','er');
-  throw new Error('READONLY_MODE: ghi/xóa dữ liệu đã bị vô hiệu hóa trên database dự phòng.');
-}
-
-// Ghi vào db1 (Firebase 1)
+// Ghi vào db1 VÀ db2 VÀ db3 song song (luôn cả 3 để đồng bộ)
 async function fsSet(colName,docId,data){
-  if(READONLY_MODE) blockWrite();
-  await setDoc(doc(db,colName,docId),data,{merge:true});
+  _dbStatus.db1.write=false; _dbStatus.db1.err=null;
+  _dbStatus.db2.write=false; _dbStatus.db2.err=null;
+  _dbStatus.db3.write=false; _dbStatus.db3.err=null;
+  const p1=setDoc(doc(db,colName,docId),data,{merge:true})
+    .then(()=>{ _dbStatus.db1.write=true; updateDbStatusUI(); })
+    .catch(e=>{ _dbStatus.db1.err=e.message; updateDbStatusUI(); throw e; });
+  const p2=db2
+    ? setDoc(doc(db2,colName,docId),data,{merge:true})
+        .then(()=>{ _dbStatus.db2.write=true; updateDbStatusUI(); })
+        .catch(e=>{ _dbStatus.db2.err=e.message; updateDbStatusUI(); })
+    : Promise.resolve();
+  const p3=db3
+    ? setDoc(doc(db3,colName,docId),data,{merge:true})
+        .then(()=>{ _dbStatus.db3.write=true; updateDbStatusUI(); })
+        .catch(e=>{ _dbStatus.db3.err=e.message; updateDbStatusUI(); })
+    : Promise.resolve();
+  await Promise.all([p1,p2,p3]);
 }
 
-// Xóa khỏi db1
+// Xóa khỏi db1 VÀ db2 VÀ db3 song song (luôn cả 3 để đồng bộ)
 async function fsDel(colName,docId){
-  if(READONLY_MODE) blockWrite();
-  await deleteDoc(doc(db,colName,docId));
+  _dbStatus.db1.write=false; _dbStatus.db1.err=null;
+  _dbStatus.db2.write=false; _dbStatus.db2.err=null;
+  _dbStatus.db3.write=false; _dbStatus.db3.err=null;
+  const p1=deleteDoc(doc(db,colName,docId))
+    .then(()=>{ _dbStatus.db1.write=true; updateDbStatusUI(); })
+    .catch(e=>{ _dbStatus.db1.err=e.message; updateDbStatusUI(); throw e; });
+  const p2=db2
+    ? deleteDoc(doc(db2,colName,docId))
+        .then(()=>{ _dbStatus.db2.write=true; updateDbStatusUI(); })
+        .catch(e=>{ _dbStatus.db2.err=e.message; updateDbStatusUI(); })
+    : Promise.resolve();
+  const p3=db3
+    ? deleteDoc(doc(db3,colName,docId))
+        .then(()=>{ _dbStatus.db3.write=true; updateDbStatusUI(); })
+        .catch(e=>{ _dbStatus.db3.err=e.message; updateDbStatusUI(); })
+    : Promise.resolve();
+  await Promise.all([p1,p2,p3]);
 }
 
 // ─── LOAD ALL ────────────────────────────────────────────────────────────────
@@ -575,18 +704,25 @@ async function loadAll(force=false){
     }
   }
   S.loaded=false;S.err=null;setPulse('loading');
-  // Nếu tk1 hết quota khi đọc → tự switch sang tk2
+
+  // ── Chọn DB đọc theo slot thời gian 30 phút ────────────────────────────────
+  const { readDb, label: readLabel, slot } = getReadDb();
+  S._readDbLabel = readLabel; // lưu vào state để UI hiển thị
+  S._readSlot = slot; // slot hiện tại (debug)
+  updateDbStatusUI();
+
   try {
     const [fl,cl,ld,mb,tk]=await Promise.all([
-      fsGetAll('flowers'),
-      fsGetAll('clans'),
-      fsGetAll('leaders'),
-      fsGetAll('members'),
-      fsGetAll('ticks'),
+      fsGetAll('flowers', readDb),
+      fsGetAll('clans', readDb),
+      fsGetAll('leaders', readDb),
+      fsGetAll('members', readDb),
+      fsGetAll('ticks', readDb),
     ]);
     S.flowers=fl.filter(r=>r.name).map(r=>({
       id:r._id,name:r.name,color:r.color||'trang',
       imgUrl:r.imgUrl||'',sortOrder:Number(r.sortOrder)||0,
+      label:r.label||'',
     })).sort((a,b)=>a.sortOrder-b.sortOrder);
     S.clans=cl.filter(r=>r.name).map(r=>({id:r._id,name:r.name}));
     S.leaders=ld.filter(r=>r.username).map(r=>({
@@ -871,7 +1007,7 @@ function pageFlowers(){
       const dClans=getDisplayClans(f.id);
       const dMembers=getDisplayMembers(f.id);
       return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
-        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}</div>
+        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f)}</div>
         <div class="fc-body">
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
           <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -941,7 +1077,7 @@ function buildFlowerGrid(){
     <div class="fg">${flowers.map(f=>{
       const dC=gClans(f.id);const dM=gMembers(f.id);
       return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
-        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}</div>
+        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f)}</div>
         <div class="fc-body">
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
           <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -979,7 +1115,7 @@ function buildTickGrid(){
       const tk=S.msel.has(f.id);
       return `<div class="fc tc ${tk?'ticked':''}" onclick="toggleTick('${f.id}')">
         <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" loading="lazy">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}
-        <div class="chk">${tk?'✓':''}</div></div>
+        ${labelBadgeHtml(f)}<div class="chk">${tk?'✓':''}</div></div>
         <div class="fc-body"><div class="fc-name">${esc(f.name)}</div>
         <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span></div>
       </div>`;
@@ -1424,6 +1560,17 @@ window.openAddFlower=function(){
         <img id="ef-img-preview" src="" style="display:none;margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
       </div>
       <div class="fg-col"><label class="fl">Thứ tự</label><input class="fi" id="ef-sort" type="number" value="0"></div>
+      <div class="fg-col"><label class="fl">Nhãn số <span style="font-size:.72rem;color:var(--mist)">(14 / 21 / 23 / 25 / 28 / 30)</span></label>
+        <select class="fi" id="ef-label">
+          <option value="">— Không có nhãn —</option>
+          <option value="14">14</option>
+          <option value="21">21</option>
+          <option value="23">23</option>
+          <option value="25">25</option>
+          <option value="28">28</option>
+          <option value="30">30</option>
+        </select>
+      </div>
     </div>`,
     `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doSaveFlower()">💾 Lưu</button>`
   );
@@ -1450,6 +1597,17 @@ window.openEditFlower=function(id){
         <img id="ef-img-preview" src="${esc(f.imgUrl)}" style="display:${f.imgUrl?'block':'none'};margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
       </div>
       <div class="fg-col"><label class="fl">Thứ tự</label><input class="fi" id="ef-sort" type="number" value="${f.sortOrder}"></div>
+      <div class="fg-col"><label class="fl">Nhãn số <span style="font-size:.72rem;color:var(--mist)">(14 / 21 / 23 / 25 / 28 / 30)</span></label>
+        <select class="fi" id="ef-label">
+          <option value="">— Không có nhãn —</option>
+          <option value="14" ${f.label==='14'?'selected':''}>14</option>
+          <option value="21" ${f.label==='21'?'selected':''}>21</option>
+          <option value="23" ${f.label==='23'?'selected':''}>23</option>
+          <option value="25" ${f.label==='25'?'selected':''}>25</option>
+          <option value="28" ${f.label==='28'?'selected':''}>28</option>
+          <option value="30" ${f.label==='30'?'selected':''}>30</option>
+        </select>
+      </div>
     </div>`,
     `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doSaveFlower()">💾 Lưu</button>`
   );
@@ -1466,19 +1624,20 @@ window.doSaveFlower=async function(){
   const imgUrl=document.getElementById('ef-img')?.value.trim()||'';
   const sortOrder=Number(document.getElementById('ef-sort')?.value)||0;
   const color=S._editColor||'trang';
+  const label=document.getElementById('ef-label')?.value||'';
   const btn=document.querySelector('.mbox .btn-g');
   if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
   setPulse('loading');
   try {
     if(S._editFlowerId){
-      await fsSet('flowers',S._editFlowerId,{name,color,imgUrl,sortOrder});
+      await fsSet('flowers',S._editFlowerId,{name,color,imgUrl,sortOrder,label});
       const f=S.flowers.find(x=>x.id===S._editFlowerId);
-      if(f){f.name=name;f.color=color;f.imgUrl=imgUrl;f.sortOrder=sortOrder;}
+      if(f){f.name=name;f.color=color;f.imgUrl=imgUrl;f.sortOrder=sortOrder;f.label=label;}
       toast('Đã cập nhật hoa');
     } else {
       const newId='f'+Date.now();
-      await fsSet('flowers',newId,{name,color,imgUrl,sortOrder});
-      S.flowers.push({id:newId,name,color,imgUrl,sortOrder});
+      await fsSet('flowers',newId,{name,color,imgUrl,sortOrder,label});
+      S.flowers.push({id:newId,name,color,imgUrl,sortOrder,label});
       toast('Đã thêm hoa 🌸');
     }
     S.flowers.sort((a,b)=>a.sortOrder-b.sortOrder);
@@ -1604,12 +1763,92 @@ window.doDelMember=async function(id){
   render();
 };
 
+// ─── DB STATUS PANEL HTML ────────────────────────────────────────────────────
+function buildDbStatusHtml(){
+  const r = S._readDbLabel || 'DB1';
+  const db1ok = _dbStatus.db1.write;
+  const db2ok = _dbStatus.db2.write;
+  const db3ok = _dbStatus.db3.write;
+  const db1err = _dbStatus.db1.err;
+  const db2err = _dbStatus.db2.err;
+  const db3err = _dbStatus.db3.err;
+  const hasDb2 = !!db2;
+  const hasDb3 = !!db3;
+
+  const readBar = (label, active) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid ${active?'#22c55e':'var(--bd)'};background:${active?'#f0fdf4':'var(--sage)'}">
+      <div style="width:10px;height:10px;border-radius:50%;background:${active?'#22c55e':'var(--haze)'};flex-shrink:0;${active?'box-shadow:0 0 0 3px #bbf7d0':''}"></div>
+      <div>
+        <div style="font-size:.8rem;font-weight:700;color:${active?'#15803d':'var(--mist)'}">📖 Đọc — ${label}</div>
+        <div style="font-size:.7rem;color:${active?'#166534':'var(--mist)'}">${active?'Đang đọc dữ liệu từ '+label:'Không hoạt động'}</div>
+      </div>
+      ${active?'<span style="margin-left:auto;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:99px;background:#22c55e;color:#fff">ACTIVE</span>':''}
+    </div>`;
+
+  const writeBar = (label, ok, err, available) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid ${!available?'var(--bd)':err?'#fca5a5':ok?'#93c5fd':'var(--bd)'};background:${!available?'#f9f9f9':err?'#fef2f2':ok?'#eff6ff':'var(--sage)'}">
+      <div style="width:10px;height:10px;border-radius:50%;background:${!available?'#d1d5db':err?'#ef4444':ok?'#3b82f6':'var(--haze)'};flex-shrink:0;${ok&&available?'box-shadow:0 0 0 3px #bfdbfe':''}"></div>
+      <div>
+        <div style="font-size:.8rem;font-weight:700;color:${!available?'var(--mist)':err?'#dc2626':ok?'#1d4ed8':'var(--mist)'}">✏️ Ghi/Xóa — ${label}</div>
+        <div style="font-size:.7rem;color:${!available?'var(--haze)':err?'#dc2626':ok?'#1e40af':'var(--mist)'}">
+          ${!available?'Chưa cấu hình':err?'❌ Lỗi: '+err:ok?'✅ Ghi thành công':'Chờ thao tác ghi...'}
+        </div>
+      </div>
+      ${ok&&available?'<span style="margin-left:auto;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:99px;background:#3b82f6;color:#fff">OK</span>':''}
+      ${err&&available?'<span style="margin-left:auto;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:99px;background:#ef4444;color:#fff">ERR</span>':''}
+    </div>`;
+
+  // Tính thời gian còn lại của slot hiện tại
+  const now = Date.now();
+  const slotMs = 30 * 60 * 1000;
+  const slotStart = Math.floor(now / slotMs) * slotMs;
+  const slotEnd = slotStart + slotMs;
+  const remaining = slotEnd - now;
+  const remMin = Math.floor(remaining / 60000);
+  const remSec = Math.floor((remaining % 60000) / 1000);
+  const slotNum = S._readSlot || Math.floor(now / slotMs);
+  const nextMap = {'DB1':'DB2','DB2':'DB3','DB3':'DB1'};
+  const nextDb = nextMap[r] || 'DB2';
+
+  return `
+    <div style="margin-bottom:12px">
+      <div style="font-size:.75rem;font-weight:700;color:var(--mist);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📖 Trạng thái Đọc (slot 30 phút — luân phiên DB1→DB2→DB3)</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        ${readBar('DB1', r==='DB1')}
+        ${readBar('DB2', r==='DB2')}
+        ${readBar('DB3', r==='DB3')}
+      </div>
+      <div style="margin-top:8px;padding:8px 12px;border-radius:9px;background:#fefce8;border:1.5px solid #fde047;font-size:.72rem;color:#854d0e;line-height:1.7">
+        🕐 <strong>Slot #${slotNum}</strong> — Còn <strong>${remMin}p ${remSec}s</strong> nữa sẽ chuyển sang <strong>${nextDb}</strong>
+      </div>
+    </div>
+    <div style="margin-bottom:4px">
+      <div style="font-size:.75rem;font-weight:700;color:var(--mist);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">✏️ Trạng thái Ghi/Xóa (luôn cả 3 DB)</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        ${writeBar('DB1', db1ok, db1err, true)}
+        ${writeBar('DB2', db2ok, db2err, hasDb2)}
+        ${writeBar('DB3', db3ok, db3err, hasDb3)}
+      </div>
+    </div>
+    <div style="font-size:.71rem;color:var(--mist);margin-top:10px;line-height:1.7">
+      ℹ️ Mỗi slot 30 phút cố định theo giờ thực — mọi user dù reload bao nhiêu lần trong slot đó đều đọc cùng 1 DB. Ghi & Xóa luôn đồng bộ cả 3 DB.
+    </div>`;
+}
+
 // ─── SETTINGS PAGE (ADMIN ONLY) ──────────────────────────────────────────────
 function pageSettings(){
   if(!isAdmin()) return `<div class="empty"><div class="empty-icon">🔒</div>Chỉ Admin mới truy cập được</div>`;
   const hasConfig=!!loadSavedConfig();
-  return `<div class="card" style="margin-bottom:14px">
-    <div class="card-title">🔥 Firebase Config</div>
+  return `
+  <div class="card" style="margin-bottom:14px;border-left:3px solid #22c55e">
+    <div class="card-title">🗄️ Trạng thái Kết nối Database</div>
+    <div id="db-status-panel">${buildDbStatusHtml()}</div>
+    <div style="margin-top:12px">
+      <button class="btn btn-g btn-sm" onclick="retry()">🔄 Tải lại & Cập nhật trạng thái</button>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">🔥 Firebase Config (DB1 — Chính)</div>
     ${hasConfig
       ?`<p style="font-size:.82rem;color:var(--mist);margin-bottom:12px">Đang kết nối Firebase. Paste config mới để thay thế.</p>`
       :`<p style="font-size:.82rem;color:var(--mist);margin-bottom:12px">Paste Firebase config JSON vào đây.</p>`}
@@ -1619,8 +1858,14 @@ function pageSettings(){
       ${hasConfig?`<button class="btn btn-r btn-sm" onclick="confirmReset()">🔌 Ngắt kết nối</button>`:''}
     </div>
   </div>
-  <div class="card" style="margin-top:14px">
-    <button class="btn btn-g btn-sm" onclick="retry()">🔄 Tải lại dữ liệu</button>
+  <div class="card" style="margin-top:14px;border-left:3px solid var(--clan)">
+    <div class="card-title">📦 Sao chép dữ liệu sang Firebase khác</div>
+    <p style="font-size:.82rem;color:var(--mist);margin-bottom:10px">Paste config JSON của Firebase đích vào ô bên dưới rồi nhấn sao chép. Dữ liệu tk1 sẽ được ghi đè sang Firebase đó.</p>
+    <textarea class="fi fb-textarea" id="copy-target-cfg" placeholder='{"apiKey":"...","projectId":"..."}'></textarea>
+    <div id="copy-log" style="display:none;background:var(--sage);border-radius:10px;padding:12px;font-size:.78rem;color:var(--forest2);margin:10px 0;line-height:1.9"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn" style="background:var(--clan);color:#fff" onclick="copyToTarget()">📤 Bắt đầu sao chép</button>
+    </div>
   </div>`;
 }
 window.saveFirebaseConfig=async function(){
@@ -1644,9 +1889,48 @@ window.doReset=function(){
   closeModal();
   localStorage.removeItem(CK_FB);
   db=null;
+  db2=null;
+  db3=null;
   S={...S,loaded:false,err:null,flowers:[],clans:[],leaders:[],members:[],ticks:{},page:'flowers',msel:new Set(),proxyMemberId:null,_lastTickSubject:null,tcolor:'all',tq:'',fcolor:'all',fq:''};
   render();
 };
+
+// ─── COPY TO TARGET FIREBASE ────────────────────────────────────────────────
+async function doCopyToDb(targetDb, logEl){
+  const log=(msg)=>{ logEl.style.display=''; logEl.innerHTML+=msg+'<br>'; };
+  const cols=['flowers','clans','leaders','members','ticks'];
+  for(const colName of cols){
+    log(`📂 Đang sao chép <strong>${colName}</strong>...`);
+    const snap=await getDocs(collection(db,colName));
+    let count=0;
+    for(const d of snap.docs){
+      await setDoc(doc(targetDb,colName,d.id),d.data());
+      count++;
+    }
+    log(`&nbsp;&nbsp;↳ ${count} bản ghi ✓`);
+  }
+  log('🎉 <strong>Hoàn tất!</strong>');
+}
+
+window.copyToTarget=async function(){
+  const logEl=document.getElementById('copy-log');
+  logEl.innerHTML='';
+  const log=(msg)=>{ logEl.style.display=''; logEl.innerHTML+=msg+'<br>'; };
+  const raw=document.getElementById('copy-target-cfg')?.value.trim();
+  if(!raw){toast('Paste config JSON vào!','wn');return;}
+  let cfg;
+  try{cfg=JSON.parse(raw);}catch(e){toast('JSON không hợp lệ','er');return;}
+  if(!cfg.projectId){toast('Thiếu projectId!','wn');return;}
+  log('🔌 Đang kết nối Firebase đích...');
+  try {
+    const existing=_fbApps().find(a=>a.name==='hoavien-copy-target');
+    const appT=existing?_fbGetApp('hoavien-copy-target'):_fbInit(cfg,'hoavien-copy-target');
+    const dbT=_fbGetFirestore(appT);
+    log('✅ Kết nối thành công → <strong>'+cfg.projectId+'</strong>');
+    await doCopyToDb(dbT,logEl);
+  } catch(e){ log('❌ Lỗi: '+e.message); }
+};
+
 
 
 // ─── SETUP SCREEN ────────────────────────────────────────────────────────────
