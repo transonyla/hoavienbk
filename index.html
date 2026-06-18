@@ -480,6 +480,7 @@ code{background:var(--sage);padding:1px 6px;border-radius:5px;font-size:.82em;co
   <span class="bar-logo">Hoa Viên</span>
   <div class="bar-sp"></div>
   <div class="bar-sync"><div class="pulse" id="pulse"></div><span id="synclbl">Kết nối</span></div>
+  <div id="bar-guide-area"></div>
   <div id="bar-user-area"></div>
 </div>
 
@@ -970,7 +971,75 @@ function renderBarUser(){
   const icons={admin:'🔓',leader:'🏆',member:'🌸'};
   const icon=icons[S.session.role]||'👤';
   area.innerHTML=`<div class="bar-user" onclick="doLogout()" title="Nhấn để đăng xuất">${icon} <span>${esc(S.session.displayName)}</span> <span style="opacity:.5;font-size:.65rem">✕</span></div>`;
+  // Nút hướng dẫn — chỉ hiện cho leader và member
+  const guideArea=document.getElementById('bar-guide-area');
+  if(guideArea){
+    if(isLeader()||isMember()){
+      guideArea.innerHTML=`<button class="bar-user" onclick="openGuide()" title="Hướng dẫn sử dụng" style="font-size:.82rem">❓ Hướng dẫn</button>`;
+    } else {
+      guideArea.innerHTML='';
+    }
+  }
 }
+
+window.openGuide=function(){
+  const role=S.session?.role;
+  const isLd=role==='leader';
+  const guideLeader=isLd?`
+<div style="margin-top:18px;padding-top:14px;border-top:1.5px solid var(--bd)">
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🏆 Tính năng riêng của Hội trưởng</div>
+
+  <div style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:6px">✅ Tick hoa thay cho thành viên</div>
+  <div style="font-size:.8rem;color:var(--mist);line-height:1.7;margin-bottom:10px">
+    Vào tab <b>✅ Đánh dấu</b>, chọn tên thành viên trong ô <b>"Tick thay cho thành viên"</b> phía trên. Danh sách hoa sẽ hiển thị đúng trạng thái tick hiện tại của thành viên đó. Tick/bỏ tick hoa rồi bấm <b>💾 Lưu</b> — dữ liệu lưu vào tài khoản của thành viên đó, không phải của bạn.<br>
+    <span style="color:var(--clan);font-size:.76rem">💡 Thanh dưới hiện "Lưu cho [Tên thành viên]: X hoa" để nhắc bạn đang lưu cho ai.</span>
+  </div>
+
+  <div style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:6px">⚙️ Thêm thành viên mới</div>
+  <div style="font-size:.8rem;color:var(--mist);line-height:1.7">
+    Vào tab <b>⚙️ Quản lý</b>, bấm <b>+ Thêm TV</b>. Điền đầy đủ: Tên hiển thị, Username, Mật khẩu (bắt buộc) và Biệt danh, Năm (tuỳ chọn). Hội tự động gán theo hội của bạn. Bấm <b>Thêm</b> — hệ thống tự tạo luôn tài khoản đăng nhập.<br>
+    <span style="color:var(--clan);font-size:.76rem">⚠️ Nếu tạo lỗi, dữ liệu tự xóa để tránh tài khoản rỗng không đăng nhập được.</span>
+  </div>
+</div>`:''
+  const body=`
+<div style="font-size:.8rem;color:var(--mist);line-height:1.8">
+
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🔐 Đăng nhập & Đăng xuất</div>
+  <div style="margin-bottom:14px">Nhập đúng <b>Tên đăng nhập</b> và <b>Mật khẩu</b> được cấp, bấm nút đăng nhập tương ứng. Để đăng xuất, bấm vào <b>tên của bạn</b> ở góc trên bên phải (có dấu ✕ nhỏ phía sau).</div>
+
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🌸 Tab Hoa — Xem danh sách hoa</div>
+  <div style="margin-bottom:6px">Danh sách toàn bộ hoa hiển thị dưới dạng thẻ card, mỗi thẻ có ảnh, tên hoa, màu sắc và số người trong hội sở hữu.</div>
+  <ul style="margin:0 0 10px 16px;padding:0">
+    <li><b>Lọc theo màu:</b> Bấm nút màu phía trên (Tất cả, Trắng, Xanh lá, Xanh lam, Tím, Cam, Đỏ hồng). Số trong ngoặc là <i>hoa bạn đã tick / tổng hoa màu đó</i>.</li>
+    <li><b>Tìm kiếm:</b> Gõ tên hoa vào ô tìm kiếm, kết quả lọc ngay tức thì.</li>
+    <li><b>Xem ai sở hữu:</b> Bấm vào bất kỳ thẻ hoa nào để xem danh sách thành viên trong hội đã tick hoa đó.</li>
+  </ul>
+
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">✅ Tab Đánh dấu — Tick hoa của bạn</div>
+  <ol style="margin:0 0 6px 16px;padding:0">
+    <li>Vào tab <b>✅ Đánh dấu</b></li>
+    <li>Dùng bộ lọc màu hoặc ô tìm kiếm để tìm hoa</li>
+    <li>Bấm vào thẻ hoa để bật/tắt dấu tick (thẻ sáng lên khi đã chọn)</li>
+    <li>Bấm nút <b>💾 Lưu</b> ở thanh dưới màn hình để lưu lại</li>
+  </ol>
+  <div style="background:#fef3c7;border-radius:8px;padding:8px 10px;margin-bottom:14px;font-size:.77rem;color:#92400e">
+    ⚠️ <b>Quan trọng:</b> Nếu tick hoa nhưng <b>không bấm Lưu</b> trước khi thoát tab, dữ liệu sẽ bị mất. Thanh dưới luôn hiển thị số hoa đang chọn để bạn theo dõi.
+  </div>
+
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">👥 Tab Thành viên — Xem danh sách hội</div>
+  <ul style="margin:0 0 14px 16px;padding:0">
+    <li>Chỉ hiện thành viên <b>cùng hội</b> với bạn</li>
+    <li>Thống kê nhanh đầu trang: tổng thành viên, tổng loài hoa, trung bình hoa/người</li>
+    <li>Bấm vào tên thành viên để xem danh sách chi tiết các hoa họ đã tick</li>
+  </ul>
+
+  <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;font-size:.77rem;color:#166534">
+    📌 <b>Nếu quên mật khẩu:</b> Liên hệ Hội trưởng hoặc Admin để được đặt lại.
+  </div>
+  ${guideLeader}
+</div>`;
+  openModal(isLd?'📖 Hướng dẫn — Hội trưởng':'📖 Hướng dẫn — Thành viên', body, `<button class="btn btn-g" onclick="closeModal()" style="min-width:100px">Đã hiểu ✓</button>`);
+};
 
 function renderNav(){
   const tabs=[];
