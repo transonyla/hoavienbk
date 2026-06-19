@@ -559,6 +559,8 @@ let S = {
   leaders:[],
   members:[],
   ticks:{},
+  rentals:[],        // Hội Đã Thuê
+  lastLogins:[],     // Last login per user (admin only)
   loaded:false, err:null,
   page:'flowers', fcolor:'all', tcolor:'all', fq:'', tq:'',
   msel:new Set(),
@@ -867,6 +869,7 @@ async function loadAll(force=false){
     const isAdm = S.session.role==='admin';
     const leadersTable = isAdm ? 'leaders' : 'leaders_safe';
     const membersTable = isAdm ? 'members' : 'members_safe';
+    // Tải các bảng cốt lõi — luôn cần cho mọi role
     const [fl,cl,ld,mb,tk]=await Promise.all([
       sbGetAll('flowers'),
       sbGetAll('clans'),
@@ -874,6 +877,21 @@ async function loadAll(force=false){
       sbGetAll(membersTable),
       sbGetAll('ticks'),
     ]);
+    // Admin: tải thêm rentals + last_login riêng, lỗi không crash app
+    if(isAdm){
+      const [rentalsRaw, lastLoginRaw] = await Promise.all([
+        sb.from('clan_rentals').select('*').then(r=>r.data||[]).catch(()=>[]),
+        sb.from('user_last_login').select('*').then(r=>r.data||[]).catch(()=>[]),
+      ]);
+      S.rentals = rentalsRaw.map(r=>({
+        id:r.id, clanId:r.clan_id, startDate:r.start_date,
+        months:Number(r.months)||1, note:r.note||''
+      }));
+      S.lastLogins = lastLoginRaw.map(r=>({
+        userId:r.user_id, username:r.username,
+        displayName:r.display_name||r.username, role:r.role, lastSeen:r.last_seen
+      }));
+    } else { S.rentals=[]; S.lastLogins=[]; }
     S.flowers=fl.filter(r=>r.name).map(r=>({
       id:r.id, name:r.name, color:r.color||'trang',
       imgUrl:r.img_url||'', sortOrder:Number(r.sort_order)||0,
@@ -1142,6 +1160,8 @@ window.doLoginAdmin=async function(){
     if(setErr){ toast('Lỗi thiết lập session: '+setErr.message,'er'); if(btn){btn.disabled=false;btn.innerHTML='🔓 Đăng nhập Admin';} return; }
     saveSession({role:'admin',id:'admin',clanId:'',displayName:'Admin'});
     S.page='flowers';toast('Chào Admin! 🔓');
+    // Ghi lần đăng nhập cuối cho admin TRƯỚC khi loadAll, để bảng last-login có dữ liệu mới nhất
+    await writeLastLogin('admin','admin','Admin','admin');
     await loadAll(true);
     render();
     window.scrollTo({top:0});
@@ -1169,6 +1189,9 @@ window.doLoginLeader=async function(){
     if(l){ S.session.clanId=l.clanId; S.session.displayName=l.displayName; saveSession(S.session); }
     S.msel=new Set(S.ticks[id]||[]);
     S.page='flowers';toast('Chào '+(l?.displayName||u)+' 🏆');
+    // Ghi lần đăng nhập cuối cho leader, rồi tải lại để admin thấy ngay nếu đang xem Settings
+    await writeLastLogin(id, u, l?.displayName||u, 'leader');
+    await loadAll(true);
     render();
     window.scrollTo({top:0});
   } catch(e){
@@ -1194,6 +1217,9 @@ window.doLoginMember=async function(){
     if(m){ S.session.clanId=m.clanId; S.session.displayName=m.displayName; saveSession(S.session); }
     S.msel=new Set(S.ticks[id]||[]);
     S.page='tick';toast('Chào '+(m?.displayName||u)+' 🌸');
+    // Ghi lần đăng nhập cuối cho member, rồi tải lại để admin thấy ngay nếu đang xem Settings
+    await writeLastLogin(id, u, m?.displayName||u, 'member');
+    await loadAll(true);
     render();
     window.scrollTo({top:0});
   } catch(e){
@@ -1645,6 +1671,7 @@ function pageManage(){
     {k:'leaders',l:'🏆 Hội trưởng', fn:manageLeaders},
     {k:'flowers',l:'🌸 Hoa',         fn:manageFlowers},
     {k:'members',l:'👥 Thành viên',  fn:manageAllMembers},
+    {k:'rentals',l:'🏠 Hội Đã Thuê', fn:manageRentals},
   ];
   const tabBar=`<div class="nav" style="margin-bottom:16px">${tabs.map(t=>`<button class="nvb ${S._manageTab===t.k?'on':''}" onclick="setManageTab('${t.k}')">${t.l}</button>`).join('')}</div>`;
   const active=tabs.find(t=>t.k===S._manageTab)||tabs[0];
@@ -2278,6 +2305,239 @@ window.doDelMember=async function(id){
   render();
 };
 
+// ─── HỘI ĐÃ THUÊ (ADMIN ONLY) ───────────────────────────────────────────────
+function manageRentals(){
+  if(!isAdmin()) return '';
+  // Tính kỳ thanh toán từ ngày bắt đầu + số tháng thuê
+  function calcPaymentCycles(startDate, months){
+    const start = new Date(startDate);
+    const cycles = [];
+    for(let i=1; i<=months; i++){
+      const d = new Date(start);
+      d.setMonth(d.getMonth() + i);
+      cycles.push(d);
+    }
+    return cycles;
+  }
+  function rentalStatus(startDate, months){
+    const now = new Date();
+    const cycles = calcPaymentCycles(startDate, months);
+    const end = cycles[cycles.length-1];
+    if(now >= end) return {label:'⏰ Tới kỳ thanh toán', color:'#ef4444', bg:'#fef2f2'};
+    // Kiểm tra xem có cycle nào đã tới không (nhưng chưa phải cycle cuối)
+    const reached = cycles.filter(c=>now>=c);
+    if(reached.length>0) return {label:'⏰ Tới kỳ thanh toán', color:'#ef4444', bg:'#fef2f2'};
+    return {label:'✅ Chưa tới kỳ', color:'#16a34a', bg:'#f0fdf4'};
+  }
+  function formatDate(d){
+    const dt=new Date(d);
+    return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`;
+  }
+
+  const rows = S.rentals.map(r=>{
+    const clan = S.clans.find(c=>c.id===r.clanId);
+    const cycles = calcPaymentCycles(r.startDate, r.months);
+    const status = rentalStatus(r.startDate, r.months);
+    const cycleStr = cycles.map((c,i)=>`<span style="background:#f3f4f6;border-radius:5px;padding:1px 6px;font-size:.68rem;margin-right:2px">${formatDate(c)}</span>`).join('');
+    return `<tr>
+      <td><strong>${clan?esc(clan.name):'<span style="color:var(--haze)">—</span>'}</strong></td>
+      <td style="font-size:.78rem">${formatDate(r.startDate)}</td>
+      <td style="font-size:.78rem">${r.months} tháng</td>
+      <td style="font-size:.72rem;line-height:1.8">${cycleStr}</td>
+      <td><span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:${status.bg};color:${status.color}">${status.label}</span></td>
+      <td style="white-space:nowrap">
+        <button class="ibtn" onclick="openEditRental('${r.id}')">✏️</button>
+        <button class="ibtn del" onclick="confirmDelRental('${r.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-title">🏠 Hội Đã Thuê <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${S.rentals.length})</span>
+      <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddRental()">+ Thêm</button>
+    </div>
+    <div style="font-size:.75rem;color:var(--mist);margin-bottom:12px;line-height:1.6">
+      📌 Kỳ thanh toán = ngày thuê / tháng thuê + X tháng / năm. Trạng thái chuyển <b style="color:#ef4444">Tới kỳ thanh toán</b> khi đến hạn kỳ gần nhất.
+    </div>
+    ${S.rentals.length===0
+      ?`<div class="empty"><div class="empty-icon">🏠</div>Chưa có hội nào được thuê</div>`
+      :`<div style="overflow-x:auto"><table class="mtbl">
+          <thead><tr><th>Hội</th><th>Bắt đầu thuê</th><th>Thời hạn</th><th>Kỳ thanh toán</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`
+    }
+  </div>`;
+}
+
+window.openAddRental=function(){
+  const clanOpts = S.clans.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const today = new Date().toISOString().slice(0,10);
+  openModal('🏠 Thêm Hội Đã Thuê',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Chọn Hội *</label>
+        <select class="fi" id="rt-clan">${S.clans.length?clanOpts:'<option value="">— Chưa có Hội —</option>'}</select>
+      </div>
+      <div class="fg-col"><label class="fl">Ngày bắt đầu thuê *</label>
+        <input class="fi" id="rt-start" type="date" value="${today}">
+      </div>
+      <div class="fg-col"><label class="fl">Thời hạn thuê *</label>
+        <select class="fi" id="rt-months">
+          <option value="1">1 tháng</option>
+          <option value="2">2 tháng</option>
+          <option value="3">3 tháng</option>
+          <option value="6">6 tháng</option>
+          <option value="12">12 tháng</option>
+        </select>
+      </div>
+      <div class="fg-col"><label class="fl">Ghi chú</label>
+        <input class="fi" id="rt-note" placeholder="Ghi chú thêm (tuỳ chọn)">
+      </div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doAddRental()">Thêm</button>`
+  );
+};
+window.doAddRental=async function(){
+  const clanId=document.getElementById('rt-clan')?.value;
+  const startDate=document.getElementById('rt-start')?.value;
+  const months=Number(document.getElementById('rt-months')?.value)||1;
+  const note=document.getElementById('rt-note')?.value.trim()||'';
+  if(!clanId){toast('Chọn Hội!','wn');return;}
+  if(!startDate){toast('Chọn ngày bắt đầu!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const newId='rt'+Date.now();
+    const { error } = await sb.from('clan_rentals').upsert({
+      id:newId, clan_id:clanId, start_date:startDate, months, note
+    },{onConflict:'id'});
+    if(error) throw new Error(error.message);
+    S.rentals.push({id:newId,clanId,startDate,months,note});
+    closeModal();toast('Đã thêm hội thuê!');
+    render();
+  } catch(e){toast('Lỗi: '+e.message,'er');if(btn){btn.disabled=false;btn.innerHTML='Thêm';}}
+  setPulse('');
+};
+window.openEditRental=function(id){
+  const r=S.rentals.find(x=>x.id===id);if(!r)return;
+  const clanOpts=S.clans.map(c=>`<option value="${c.id}" ${c.id===r.clanId?'selected':''}>${esc(c.name)}</option>`).join('');
+  openModal('✏️ Sửa Hội Đã Thuê',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Chọn Hội *</label>
+        <select class="fi" id="rt-clan">${clanOpts}</select>
+      </div>
+      <div class="fg-col"><label class="fl">Ngày bắt đầu thuê *</label>
+        <input class="fi" id="rt-start" type="date" value="${r.startDate}">
+      </div>
+      <div class="fg-col"><label class="fl">Thời hạn thuê *</label>
+        <select class="fi" id="rt-months">
+          ${[1,2,3,6,12].map(m=>`<option value="${m}" ${m===r.months?'selected':''}>${m} tháng</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg-col"><label class="fl">Ghi chú</label>
+        <input class="fi" id="rt-note" value="${esc(r.note)}">
+      </div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doEditRental('${id}')">Lưu</button>`
+  );
+};
+window.doEditRental=async function(id){
+  const clanId=document.getElementById('rt-clan')?.value;
+  const startDate=document.getElementById('rt-start')?.value;
+  const months=Number(document.getElementById('rt-months')?.value)||1;
+  const note=document.getElementById('rt-note')?.value.trim()||'';
+  if(!clanId||!startDate){toast('Điền đủ thông tin!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const { error } = await sb.from('clan_rentals').upsert({
+      id, clan_id:clanId, start_date:startDate, months, note
+    },{onConflict:'id'});
+    if(error) throw new Error(error.message);
+    const r=S.rentals.find(x=>x.id===id);
+    if(r){r.clanId=clanId;r.startDate=startDate;r.months=months;r.note=note;}
+    closeModal();toast('Đã cập nhật!');render();
+  } catch(e){toast('Lỗi: '+e.message,'er');if(btn){btn.disabled=false;btn.innerHTML='Lưu';}}
+  setPulse('');
+};
+window.confirmDelRental=function(id){
+  const r=S.rentals.find(x=>x.id===id);
+  const clan=S.clans.find(c=>c.id===r?.clanId);
+  openModal('⚠️ Xóa bản thuê',`Xóa bản thuê của <b>${clan?esc(clan.name):id}</b>?`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-r" onclick="doDelRental('${id}')">Xóa</button>`);
+};
+window.doDelRental=async function(id){
+  closeModal();setPulse('loading');
+  try {
+    const { error } = await sb.from('clan_rentals').delete().eq('id',id);
+    if(error) throw new Error(error.message);
+    S.rentals=S.rentals.filter(x=>x.id!==id);
+    toast('Đã xóa!');
+  } catch(e){toast('Lỗi: '+e.message,'er');}
+  setPulse('');render();
+};
+
+// ─── LAST LOGIN WRITER — dùng REST trực tiếp, bypass RLS session ─────────────
+// Supabase REST upsert với header Prefer: resolution=merge-duplicates
+async function writeLastLogin(userId, username, displayName, role){
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/user_last_login`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        username: username,
+        display_name: displayName,
+        role: role,
+        last_seen: new Date().toISOString(),
+      })
+    });
+    if(!r.ok){ const t = await r.text(); console.warn('writeLastLogin failed:', t); }
+  } catch(e){
+    console.warn('writeLastLogin error:', e.message);
+  }
+}
+
+// ─── LAST LOGIN (ADMIN ONLY — hiển thị trong Settings) ───────────────────────
+function relativeTime(iso){
+  if(!iso) return 'Chưa rõ';
+  const diff=Date.now()-new Date(iso).getTime();
+  const mins=Math.floor(diff/60000);
+  const hrs=Math.floor(mins/60);
+  const days=Math.floor(hrs/24);
+  if(mins<1)  return 'Vừa xong';
+  if(mins<60) return `${mins} phút trước`;
+  if(hrs<24)  return `${hrs} giờ trước`;
+  return `${days} ngày trước`;
+}
+
+function renderLastLoginTable(){
+  if(!isAdmin()) return '';
+  if(!S.lastLogins||S.lastLogins.length===0){
+    return `<div class="empty"><div class="empty-icon">📋</div>Chưa có dữ liệu đăng nhập.<br><span style="font-size:.76rem">Dữ liệu xuất hiện sau khi mỗi tài khoản đăng nhập lần đầu.</span></div>`;
+  }
+  const sorted=[...S.lastLogins].sort((a,b)=>new Date(b.lastSeen)-new Date(a.lastSeen));
+  const rows=sorted.map(u=>{
+    const roleIcon={admin:'🔓',leader:'🏆',member:'🌸'}[u.role]||'👤';
+    const displayName = u.displayName||u.username||u.userId;
+    return `<tr>
+      <td>${roleIcon} <strong>${esc(displayName)}</strong><div style="font-size:.7rem;color:var(--mist)">@${esc(u.username||'')}</div></td>
+      <td><span style="font-size:.72rem;padding:1px 7px;border-radius:99px;background:var(--sage);color:var(--forest2);font-weight:600">${esc(u.role||'—')}</span></td>
+      <td style="font-size:.8rem;color:var(--mist)">${relativeTime(u.lastSeen)}</td>
+    </tr>`;
+  }).join('');
+  return `<div style="overflow-x:auto"><table class="mtbl">
+    <thead><tr><th>Tài khoản</th><th>Vai trò</th><th>Đăng nhập lần cuối</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
 // ─── SETTINGS PAGE (ADMIN ONLY) ──────────────────────────────────────────────
 function pageSettings(){
   if(!isAdmin()) return `<div class="empty"><div class="empty-icon">🔒</div>Chỉ Admin mới truy cập được</div>`;
@@ -2299,6 +2559,11 @@ function pageSettings(){
   <div class="card" style="margin-bottom:14px">
     <div class="card-title">🔑 Thay đổi mật khẩu Admin</div>
     <p style="font-size:.82rem;color:var(--mist);margin-bottom:12px">Mật khẩu admin được mã hóa SHA-256 và lưu trong code. Liên hệ developer để thay đổi.</p>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">🕐 Lần đăng nhập cuối — Tất cả tài khoản</div>
+    <div style="font-size:.74rem;color:var(--mist);margin-bottom:12px">Chỉ Admin mới xem được mục này. Dữ liệu cập nhật mỗi lần đăng nhập thành công.</div>
+    ${renderLastLoginTable()}
   </div>`;
 }
 window.retry=async function(){setPulse('loading');await loadAll(true);render();};
