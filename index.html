@@ -560,6 +560,7 @@ let S = {
   members:[],
   ticks:{},
   rentals:[],        // Hội Đã Thuê
+  trials:[],         // Hội Dùng Thử
   lastLogins:[],     // Last login per user (admin only)
   loaded:false, err:null,
   page:'flowers', fcolor:'all', tcolor:'all', fq:'', tq:'',
@@ -879,19 +880,23 @@ async function loadAll(force=false){
     ]);
     // Admin: tải thêm rentals + last_login riêng, lỗi không crash app
     if(isAdm){
-      const [rentalsRaw, lastLoginRaw] = await Promise.all([
+      const [rentalsRaw, trialsRaw, lastLoginRaw] = await Promise.all([
         sb.from('clan_rentals').select('*').then(r=>r.data||[]).catch(()=>[]),
+        sb.from('clan_trials').select('*').then(r=>r.data||[]).catch(()=>[]),
         sb.from('user_last_login').select('*').then(r=>r.data||[]).catch(()=>[]),
       ]);
       S.rentals = rentalsRaw.map(r=>({
         id:r.id, clanId:r.clan_id, startDate:r.start_date,
         months:Number(r.months)||1, note:r.note||''
       }));
+      S.trials = trialsRaw.map(r=>({
+        id:r.id, clanId:r.clan_id, startDate:r.start_date, note:r.note||''
+      }));
       S.lastLogins = lastLoginRaw.map(r=>({
         userId:r.user_id, username:r.username,
         displayName:r.display_name||r.username, role:r.role, lastSeen:r.last_seen
       }));
-    } else { S.rentals=[]; S.lastLogins=[]; }
+    } else { S.rentals=[]; S.trials=[]; S.lastLogins=[]; }
     S.flowers=fl.filter(r=>r.name).map(r=>({
       id:r.id, name:r.name, color:r.color||'trang',
       imgUrl:r.img_url||'', sortOrder:Number(r.sort_order)||0,
@@ -1672,6 +1677,7 @@ function pageManage(){
     {k:'flowers',l:'🌸 Hoa',         fn:manageFlowers},
     {k:'members',l:'👥 Thành viên',  fn:manageAllMembers},
     {k:'rentals',l:'🏠 Hội Đã Thuê', fn:manageRentals},
+    {k:'trials', l:'⏳ Hội Dùng Thử',fn:manageTrials},
   ];
   const tabBar=`<div class="nav" style="margin-bottom:16px">${tabs.map(t=>`<button class="nvb ${S._manageTab===t.k?'on':''}" onclick="setManageTab('${t.k}')">${t.l}</button>`).join('')}</div>`;
   const active=tabs.find(t=>t.k===S._manageTab)||tabs[0];
@@ -2477,6 +2483,159 @@ window.doDelRental=async function(id){
   } catch(e){toast('Lỗi: '+e.message,'er');}
   setPulse('');render();
 };
+
+// ─── HỘI DÙNG THỬ (TRIAL — 7 ngày cố định) ──────────────────────────────────
+const TRIAL_DAYS = 7;
+function manageTrials(){
+  if(!isAdmin()) return '';
+  function trialExpiry(startDate){
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + TRIAL_DAYS);
+    return d;
+  }
+  function trialStatus(startDate){
+    const now = new Date();
+    const expiry = trialExpiry(startDate);
+    const msLeft = expiry.setHours(0,0,0,0) - new Date(now).setHours(0,0,0,0);
+    const daysLeft = Math.round(msLeft/86400000);
+    if(daysLeft < 0) return {label:'❌ Quá hạn', color:'#ef4444', bg:'#fef2f2', daysLeft};
+    if(daysLeft === 0) return {label:'⏰ Đến hạn', color:'#d97706', bg:'#fffbeb', daysLeft};
+    return {label:`✅ Còn hạn (${daysLeft} ngày)`, color:'#16a34a', bg:'#f0fdf4', daysLeft};
+  }
+  function formatDate(d){
+    const dt=new Date(d);
+    return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`;
+  }
+
+  const rows = S.trials.map(t=>{
+    const clan = S.clans.find(c=>c.id===t.clanId);
+    const expiry = trialExpiry(t.startDate);
+    const status = trialStatus(t.startDate);
+    return `<tr>
+      <td><strong>${clan?esc(clan.name):'<span style="color:var(--haze)">—</span>'}</strong></td>
+      <td style="font-size:.78rem">${formatDate(t.startDate)}</td>
+      <td style="font-size:.78rem">${formatDate(expiry)}</td>
+      <td><span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:${status.bg};color:${status.color}">${status.label}</span></td>
+      <td style="white-space:nowrap">
+        <button class="ibtn" onclick="openEditTrial('${t.id}')">✏️</button>
+        <button class="ibtn del" onclick="confirmDelTrial('${t.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-title">⏳ Hội Dùng Thử <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${S.trials.length})</span>
+      <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddTrial()">+ Thêm</button>
+    </div>
+    <div style="font-size:.75rem;color:var(--mist);margin-bottom:12px;line-height:1.6">
+      📌 Thời gian dùng thử cố định ${TRIAL_DAYS} ngày kể từ ngày bắt đầu. Trạng thái <b style="color:#d97706">Đến hạn</b> đúng ngày hết hạn, <b style="color:#ef4444">Quá hạn</b> sau khi hết hạn.
+    </div>
+    ${S.trials.length===0
+      ?`<div class="empty"><div class="empty-icon">⏳</div>Chưa có hội nào dùng thử</div>`
+      :`<div style="overflow-x:auto"><table class="mtbl">
+          <thead><tr><th>Hội</th><th>Bắt đầu thử</th><th>Ngày hết hạn</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`
+    }
+  </div>`;
+}
+
+window.openAddTrial=function(){
+  const clanOpts = S.clans.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const today = new Date().toISOString().slice(0,10);
+  openModal('⏳ Thêm Hội Dùng Thử',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Chọn Hội *</label>
+        <select class="fi" id="tr-clan">${S.clans.length?clanOpts:'<option value="">— Chưa có Hội —</option>'}</select>
+      </div>
+      <div class="fg-col"><label class="fl">Ngày bắt đầu thử *</label>
+        <input class="fi" id="tr-start" type="date" value="${today}">
+      </div>
+      <div class="fg-col"><label class="fl">Ghi chú</label>
+        <input class="fi" id="tr-note" placeholder="Ghi chú thêm (tuỳ chọn)">
+      </div>
+      <div style="font-size:.74rem;color:var(--mist)">Thời gian dùng thử cố định ${TRIAL_DAYS} ngày, không thể đổi.</div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doAddTrial()">Thêm</button>`
+  );
+};
+window.doAddTrial=async function(){
+  const clanId=document.getElementById('tr-clan')?.value;
+  const startDate=document.getElementById('tr-start')?.value;
+  const note=document.getElementById('tr-note')?.value.trim()||'';
+  if(!clanId){toast('Chọn Hội!','wn');return;}
+  if(!startDate){toast('Chọn ngày bắt đầu!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const newId='tr'+Date.now();
+    const { error } = await sb.from('clan_trials').upsert({
+      id:newId, clan_id:clanId, start_date:startDate, note
+    },{onConflict:'id'});
+    if(error) throw new Error(error.message);
+    S.trials.push({id:newId,clanId,startDate,note});
+    closeModal();toast('Đã thêm hội dùng thử!');
+    render();
+  } catch(e){toast('Lỗi: '+e.message,'er');if(btn){btn.disabled=false;btn.innerHTML='Thêm';}}
+  setPulse('');
+};
+window.openEditTrial=function(id){
+  const t=S.trials.find(x=>x.id===id);if(!t)return;
+  const clanOpts = S.clans.map(c=>`<option value="${c.id}" ${c.id===t.clanId?'selected':''}>${esc(c.name)}</option>`).join('');
+  openModal('✏️ Sửa Hội Dùng Thử',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Chọn Hội *</label>
+        <select class="fi" id="tr-clan">${clanOpts}</select>
+      </div>
+      <div class="fg-col"><label class="fl">Ngày bắt đầu thử *</label>
+        <input class="fi" id="tr-start" type="date" value="${t.startDate}">
+      </div>
+      <div class="fg-col"><label class="fl">Ghi chú</label>
+        <input class="fi" id="tr-note" value="${esc(t.note||'')}" placeholder="Ghi chú thêm (tuỳ chọn)">
+      </div>
+      <div style="font-size:.74rem;color:var(--mist)">Thời gian dùng thử cố định ${TRIAL_DAYS} ngày, không thể đổi.</div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doEditTrial('${id}')">Lưu</button>`
+  );
+};
+window.doEditTrial=async function(id){
+  const clanId=document.getElementById('tr-clan')?.value;
+  const startDate=document.getElementById('tr-start')?.value;
+  const note=document.getElementById('tr-note')?.value.trim()||'';
+  if(!clanId){toast('Chọn Hội!','wn');return;}
+  if(!startDate){toast('Chọn ngày bắt đầu!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const { error } = await sb.from('clan_trials').upsert({
+      id, clan_id:clanId, start_date:startDate, note
+    },{onConflict:'id'});
+    if(error) throw new Error(error.message);
+    const t=S.trials.find(x=>x.id===id);
+    if(t){ t.clanId=clanId; t.startDate=startDate; t.note=note; }
+    closeModal();toast('Đã cập nhật!');render();
+  } catch(e){toast('Lỗi: '+e.message,'er');if(btn){btn.disabled=false;btn.innerHTML='Lưu';}}
+  setPulse('');
+};
+window.confirmDelTrial=function(id){
+  const t=S.trials.find(x=>x.id===id);
+  const clan=S.clans.find(c=>c.id===t?.clanId);
+  openModal('⚠️ Xóa hội dùng thử',`Xóa lượt dùng thử của <b>${clan?esc(clan.name):id}</b>?`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-r" onclick="doDelTrial('${id}')">Xóa</button>`);
+};
+window.doDelTrial=async function(id){
+  closeModal();setPulse('loading');
+  try {
+    const { error } = await sb.from('clan_trials').delete().eq('id',id);
+    if(error) throw new Error(error.message);
+    S.trials=S.trials.filter(x=>x.id!==id);
+    toast('Đã xóa!');
+  } catch(e){toast('Lỗi: '+e.message,'er');}
+  setPulse('');render();
+};
+
 
 // ─── LAST LOGIN WRITER — dùng REST trực tiếp, bypass RLS session ─────────────
 // Supabase REST upsert với header Prefer: resolution=merge-duplicates
