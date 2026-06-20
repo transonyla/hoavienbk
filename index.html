@@ -534,10 +534,160 @@ const CK_SESSION  = 'hv5_session';
 const CK_CACHE_TS = 'hv5_cache_ts';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const ADMIN_PW_HASH = '67cec4b5d00d79ebebcffdb35234c91c785dca6d03235137aecb44d04011df51';
-const CLOUDINARY_CLOUD = 'dcjv64yqh';
-const CLOUDINARY_PRESET = 'Hoavien';
+// GITHUB_TOKEN đã được CHUYỂN sang Supabase Edge Function (upload-image), không còn lộ ở client.
+const UPLOAD_IMAGE_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/upload-image';
 const ADMIN_LOGIN_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/admin-login';
 const CREATE_USER_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/hyper-service';
+
+// ─── IMAGE CACHE (IndexedDB, lưu lâu dài, độc lập với cache 5 phút của dữ liệu Supabase ở trên) ──
+// Mục đích: ảnh hoa load từ Github/jsdelivr, đôi lúc link tạm thời không load được dù ảnh vẫn còn,
+// nên cache lại ảnh (dạng base64, ảnh <100kb) vào IndexedDB của trình duyệt, dùng lại được
+// xuyên suốt nhiều phiên truy cập, không phụ thuộc vào việc CDN có đang lag hay không.
+const IMG_CACHE_DB_NAME = 'hv5_img_cache';
+const IMG_CACHE_STORE = 'images';
+const IMG_CACHE_VERSION = 1;
+let _imgCacheDB = null;
+let _imgCacheDBPromise = null;
+
+function openImgCacheDB(){
+  if(_imgCacheDB) return Promise.resolve(_imgCacheDB);
+  if(_imgCacheDBPromise) return _imgCacheDBPromise;
+  _imgCacheDBPromise = new Promise((resolve, reject) => {
+    if(!('indexedDB' in window)){ reject(new Error('IndexedDB not supported')); return; }
+    const req = indexedDB.open(IMG_CACHE_DB_NAME, IMG_CACHE_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(IMG_CACHE_STORE)){
+        db.createObjectStore(IMG_CACHE_STORE, { keyPath: 'url' });
+      }
+    };
+    req.onsuccess = (e) => { _imgCacheDB = e.target.result; resolve(_imgCacheDB); };
+    req.onerror = () => reject(req.error);
+  });
+  return _imgCacheDBPromise;
+}
+
+async function imgCacheGet(url){
+  try {
+    const db = await openImgCacheDB();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(IMG_CACHE_STORE, 'readonly');
+      const store = tx.objectStore(IMG_CACHE_STORE);
+      const req = store.get(url);
+      req.onsuccess = () => resolve(req.result ? req.result.dataUrl : null);
+      req.onerror = () => resolve(null);
+    });
+  } catch(e){ return null; }
+}
+
+async function imgCacheSet(url, dataUrl){
+  try {
+    const db = await openImgCacheDB();
+    await new Promise((resolve) => {
+      const tx = db.transaction(IMG_CACHE_STORE, 'readwrite');
+      const store = tx.objectStore(IMG_CACHE_STORE);
+      store.put({ url, dataUrl, savedAt: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch(e){ /* lưu cache thất bại không quan trọng, bỏ qua im lặng */ }
+}
+
+// Theo dõi các <img data-cache-src="..."> đang chờ trong DOM, để gán cache vào đúng lúc DOM đã có
+const _imgCachePending = new Map(); // url -> Set of <img> elements
+
+// Trả về src để gán ngay (ưu tiên cache có sẵn, nếu chưa có thì trả về url gốc để hiện ảnh ngay lập tức,
+// đồng thời nền sẽ tự fetch về lưu cache cho lần sau)
+function cachedImgSrc(url, imgEl){
+  if(!url) return '';
+  // Gắn marker để biết ảnh nào cần thay bằng cache khi có
+  if(imgEl){
+    imgEl.setAttribute('data-cache-src', url);
+    if(!_imgCachePending.has(url)) _imgCachePending.set(url, new Set());
+    _imgCachePending.get(url).add(imgEl);
+  }
+  imgCacheGet(url).then(dataUrl => {
+    if(dataUrl){
+      // Đã có cache — áp dụng ngay cho mọi <img> đang chờ url này (kể cả khi render đã chạy lại nhiều lần)
+      document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
+        if(el.src !== dataUrl) el.src = dataUrl;
+      });
+    } else {
+      // Chưa có cache — tải về 1 lần rồi lưu, không chặn hiển thị (ảnh gốc đã hiện sẵn qua src ban đầu)
+      fetchAndCacheImage(url);
+    }
+  });
+  return url; // hiện ảnh gốc ngay lập tức, không chờ cache
+}
+
+function cssEscapeAttr(s){
+  return String(s).replace(/["\\]/g, '\\$&');
+}
+
+let _fetchingUrls = new Set();
+async function fetchAndCacheImage(url){
+  if(_fetchingUrls.has(url)) return;
+  _fetchingUrls.add(url);
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if(!res.ok) return;
+    const blob = await res.blob();
+    // Giới hạn an toàn ~300kb để tránh phình IndexedDB nếu lỡ có ảnh nặng hơn dự kiến (~100kb)
+    if(blob.size > 300 * 1024) return;
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    await imgCacheSet(url, dataUrl);
+    document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
+      if(el.src !== dataUrl) el.src = dataUrl;
+    });
+  } catch(e){
+    // Lỗi mạng/CORS khi fetch về cache — bỏ qua im lặng, ảnh gốc vẫn đang hiển thị bằng src ban đầu
+  } finally {
+    _fetchingUrls.delete(url);
+  }
+}
+
+// Quét toàn bộ <img data-cache-src> hiện có trong #app và kích hoạt kiểm tra cache cho từng cái.
+// Gọi ở cuối render() chính, đồng thời MutationObserver bên dưới tự bắt các ảnh sinh ra
+// từ những điểm innerHTML riêng lẻ khác (flowerGrid, tickGrid, mf-result, mm-result...)
+// để không cần sửa từng nơi gọi và không bỏ sót ảnh nào.
+function activateImageCache(){
+  const app=document.getElementById('app');
+  if(!app) return;
+  app.querySelectorAll('img[data-cache-src]').forEach(el=>{
+    const url=el.getAttribute('data-cache-src');
+    if(url) cachedImgSrc(url, el);
+  });
+  setupImageCacheObserver();
+}
+
+let _imgCacheObserver = null;
+function setupImageCacheObserver(){
+  const app=document.getElementById('app');
+  if(!app || _imgCacheObserver) return;
+  _imgCacheObserver = new MutationObserver((mutations)=>{
+    for(const m of mutations){
+      m.addedNodes.forEach(node=>{
+        if(node.nodeType !== 1) return;
+        if(node.matches && node.matches('img[data-cache-src]')){
+          const url=node.getAttribute('data-cache-src');
+          if(url) cachedImgSrc(url, node);
+        }
+        if(node.querySelectorAll){
+          node.querySelectorAll('img[data-cache-src]').forEach(el=>{
+            const url=el.getAttribute('data-cache-src');
+            if(url) cachedImgSrc(url, el);
+          });
+        }
+      });
+    }
+  });
+  _imgCacheObserver.observe(app, { childList: true, subtree: true });
+}
 const UPDATE_PASSWORD_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/hyper-service';
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
@@ -666,7 +816,7 @@ window.openFlowerZoom=function(fid){
   card.style.transform='scale(.4)';
   card.style.opacity='0';
   card.innerHTML=`<button class="zoom-close" onclick="event.stopPropagation();closeZoom()">✕</button>
-    <div class="zoom-img" style="position:relative">${f.imgUrl?`<img src="${esc(f.imgUrl)}">`:`<span class="zoom-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'lg')}</div>
+    <div class="zoom-img" style="position:relative">${f.imgUrl?imgTag(f.imgUrl):`<span class="zoom-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'lg')}</div>
     <div class="zoom-body">
       <div class="zoom-name" style="color:${cv.h}">${esc(f.name)}</div>
       <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -707,7 +857,7 @@ window.openMemberFlowers=function(memberId,role){
       const cv=col(ck);
       return `<div class="mf-grp"><div class="mf-grp-bar" style="background:${cv.h}"></div><h3 style="color:${cv.h}">${cv.l}</h3><span class="mf-grp-cnt">${flowers.length}</span></div>
       <div class="mf-grid">${flowers.map(f=>`<div class="mf-fc">
-        <div class="mf-fc-img" style="position:relative">${f.imgUrl?`<img src="${esc(f.imgUrl)}" decoding="async">`:`<span class="mf-fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'sm')}</div>
+        <div class="mf-fc-img" style="position:relative">${f.imgUrl?imgTag(f.imgUrl,'decoding="async"'):`<span class="mf-fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'sm')}</div>
         <div class="mf-fc-name" style="color:${cv.h}">${esc(f.name)}</div>
       </div>`).join('')}</div>`;
     }).join('');
@@ -805,6 +955,12 @@ window.setTq=function(v){
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// Sinh thẻ <img> cho ảnh hoa, có gắn data-cache-src để hệ thống cache ảnh (IndexedDB) tự nhận diện
+// và thay bằng bản đã lưu cache khi có, mà không cần sửa lại từng nơi gọi <img> thủ công.
+function imgTag(url, extraAttrs){
+  return `<img src="${esc(url)}" data-cache-src="${esc(url)}" ${extraAttrs||''}>`;
+}
 
 // Helper: tạo nhãn tròn cho card hoa (size: 'sm'=mf-label, 'md'=fc-label, 'lg'=zoom-label)
 function labelBadgeHtml(f, size='md'){
@@ -985,6 +1141,7 @@ function render(){
   if(mfEl) mfEl.innerHTML=buildMfResult();
   const mmEl=document.getElementById('mm-result');
   if(mmEl) mmEl.innerHTML=buildMmResult();
+  activateImageCache();
 }
 
 function renderBarUser(){
@@ -1327,7 +1484,7 @@ function pageFlowers(){
       const dClans=getDisplayClans(f.id);
       const dMembers=getDisplayMembers(f.id);
       return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
-        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" decoding="async">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f)}</div>
+        <div class="fc-img">${f.imgUrl?imgTag(f.imgUrl,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f)}</div>
         <div class="fc-body">
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
           <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -1397,7 +1554,7 @@ function buildFlowerGrid(){
     <div class="fg">${flowers.map(f=>{
       const dC=gClans(f.id);const dM=gMembers(f.id);
       return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
-        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" decoding="async">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f)}</div>
+        <div class="fc-img">${f.imgUrl?imgTag(f.imgUrl,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f)}</div>
         <div class="fc-body">
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
           <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -1430,7 +1587,7 @@ function buildColorGroupsHtml(list){
     <div class="fg">${flowers.map(f=>{
       const tk=S.msel.has(f.id);
       return `<div class="fc tc ${tk?'ticked':''}" onclick="toggleTick('${f.id}')">
-        <div class="fc-img">${f.imgUrl?`<img src="${esc(f.imgUrl)}" decoding="async">`:`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}
+        <div class="fc-img">${f.imgUrl?imgTag(f.imgUrl,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}
         ${labelBadgeHtml(f)}<div class="chk">${tk?'✓':''}</div></div>
         <div class="fc-body"><div class="fc-name">${esc(f.name)}</div>
         <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span></div>
@@ -1861,10 +2018,18 @@ window.doDelLeader=async function(id){
   render();
 };
 
-// ── CLOUDINARY UPLOAD ─────────────────────────────────────────────────────────
+// ── GITHUB + JSDELIVR UPLOAD ──────────────────────────────────────────────────
 window.triggerImgUpload=function(){
   document.getElementById('ef-img-file')?.click();
 };
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result.split(',')[1]); // bỏ phần "data:...;base64,"
+    r.onerror=reject;
+    r.readAsDataURL(file);
+  });
+}
 window.onImgFileChange=async function(input){
   const file=input.files[0];
   if(!file) return;
@@ -1872,36 +2037,32 @@ window.onImgFileChange=async function(input){
   const preview=document.getElementById('ef-img-preview');
   const urlInput=document.getElementById('ef-img');
   const uploadBtn=document.getElementById('ef-upload-btn');
-  const useOcr=document.getElementById('ef-ocr-toggle')?.checked;
   if(uploadBtn){uploadBtn.disabled=true;uploadBtn.innerHTML='<div class="sp"></div> Đang upload...';}
   try {
-    const fd=new FormData();
-    fd.append('file',file);
-    fd.append('upload_preset',CLOUDINARY_PRESET);
-    if(useOcr) fd.append('ocr','adv_ocr');
-    const res=await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`,{method:'POST',body:fd});
+    const base64=await fileToBase64(file);
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+
+    // Lấy access token của session hiện tại (admin đang đăng nhập) để edge function xác thực
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if(!accessToken){toast('Bạn cần đăng nhập lại trước khi upload ảnh','er');throw new Error('Chưa đăng nhập');}
+
+    const res=await fetch(UPLOAD_IMAGE_URL,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${accessToken}`,
+      },
+      body:JSON.stringify({ base64, ext }),
+    });
     const data=await res.json();
-    if(data.secure_url){
-      urlInput.value=data.secure_url;
-      if(preview){preview.src=data.secure_url;preview.style.display='block';}
-      if(useOcr){
-        // Extract OCR text from Cloudinary response
-        const ocrText=data.info?.ocr?.adv_ocr?.data?.[0]?.fullTextAnnotation?.text||'';
-        const nameInput=document.getElementById('ef-name');
-        if(ocrText&&nameInput&&!nameInput.value.trim()){
-          // Take first non-empty line as flower name
-          const firstLine=ocrText.split('\n').map(l=>l.trim()).find(l=>l.length>1)||'';
-          if(firstLine){nameInput.value=firstLine;toast('🤖 AI nhận diện: '+firstLine);}
-          else toast('Không nhận diện được chữ trong ảnh','wn');
-        } else if(!ocrText){
-          toast('Không nhận diện được chữ trong ảnh','wn');
-        }
-        toast('Upload ảnh thành công! 🖼️');
-      } else {
-        toast('Upload ảnh thành công! 🖼️');
-      }
+
+    if(res.ok && data.success){
+      urlInput.value=data.url;
+      if(preview){preview.src=data.url;preview.style.display='block';}
+      toast('Upload ảnh thành công! 🖼️ (có thể mất 1-2 phút để CDN cập nhật)');
     } else {
-      toast('Upload thất bại: '+(data.error?.message||'Lỗi không xác định'),'er');
+      toast('Upload thất bại: '+(data.error||'Lỗi không xác định'),'er');
     }
   } catch(e){toast('Lỗi upload: '+e.message,'er');}
   if(uploadBtn){uploadBtn.disabled=false;uploadBtn.innerHTML='🖼️ Chọn ảnh';}
