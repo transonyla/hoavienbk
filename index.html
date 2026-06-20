@@ -171,7 +171,7 @@ body::before{
 
 /* clan badges on flower cards */
 .fc-clans{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
-.clan-tag{font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:var(--rp);background:var(--clan2);color:var(--clan)}
+.clan-tag{font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:var(--rp);background:var(--clan2);color:var(--clan);white-space:nowrap;display:inline-block}
 
 /* ─── OVERLAY BACKDROP — dùng ::before + opacity thay vì animate background
    để tránh repaint toàn màn hình (compositor-only, không trigger repaint) ──── */
@@ -1039,7 +1039,7 @@ async function loadAll(force=false){
       const [rentalsRaw, trialsRaw, lastLoginRaw] = await Promise.all([
         sb.from('clan_rentals').select('*').then(r=>r.data||[]).catch(()=>[]),
         sb.from('clan_trials').select('*').then(r=>r.data||[]).catch(()=>[]),
-        sb.from('user_last_login').select('*').then(r=>r.data||[]).catch(()=>[]),
+        sb.from('user_last_login').select('*').order('last_seen',{ascending:false}).limit(10).then(r=>r.data||[]).catch(()=>[]),
       ]);
       S.rentals = rentalsRaw.map(r=>({
         id:r.id, clanId:r.clan_id, startDate:r.start_date,
@@ -1417,43 +1417,48 @@ function pageFlowers(){
   list.forEach(f=>{(groups[f.color]||(groups[f.color]=[])).push(f);});
 
   // Build clan + member ownership map: for each flower, which clans/members own it
+  // (Admin: bỏ qua hoàn toàn — admin không cần xem hội/thành viên trong card hoa, tránh lag)
   const flowerClans={};
   const flowerMembers={}; // {flowerId: [{displayName, clanId}]}
-  S.flowers.forEach(f=>{
-    const clanSet=new Set();
-    const mList=[];
-    S.members.forEach(m=>{
-      if((S.ticks[m.id]||[]).includes(f.id)){
-        const clan=S.clans.find(c=>c.id===m.clanId);
-        if(clan) clanSet.add(clan.name);
-        mList.push({displayName:m.displayName,clanId:m.clanId});
-      }
+  if(!isAdmin()){
+    S.flowers.forEach(f=>{
+      const clanSet=new Set();
+      const mList=[];
+      S.members.forEach(m=>{
+        if((S.ticks[m.id]||[]).includes(f.id)){
+          const clan=S.clans.find(c=>c.id===m.clanId);
+          if(clan) clanSet.add(clan.name);
+          mList.push({displayName:m.displayName,clanId:m.clanId});
+        }
+      });
+      S.leaders.forEach(l=>{
+        if((S.ticks[l.id]||[]).includes(f.id)){
+          const clan=S.clans.find(c=>c.id===l.clanId);
+          if(clan) clanSet.add(clan.name);
+          mList.push({displayName:l.displayName,clanId:l.clanId});
+        }
+      });
+      flowerClans[f.id]=[...clanSet];
+      flowerMembers[f.id]=mList;
     });
-    S.leaders.forEach(l=>{
-      if((S.ticks[l.id]||[]).includes(f.id)){
-        const clan=S.clans.find(c=>c.id===l.clanId);
-        if(clan) clanSet.add(clan.name);
-        mList.push({displayName:l.displayName,clanId:l.clanId});
-      }
-    });
-    flowerClans[f.id]=[...clanSet];
-    flowerMembers[f.id]=mList;
-  });
+  }
 
-  // For member/leader: only show data from their own clan
+  // For member/leader: only show data from their own clan. Admin: never show (perf + đỡ rối card).
   const getDisplayClans = (fid) => {
+    if(isAdmin()) return [];
     if(isMember()||isLeader()){
       const clanName=myClanName();
       return flowerClans[fid].filter(n=>n===clanName);
     }
-    return flowerClans[fid]; // admin sees all
+    return flowerClans[fid];
   };
   const getDisplayMembers = (fid) => {
+    if(isAdmin()) return [];
     if(isMember()||isLeader()){
       const cid=myClanId();
       return flowerMembers[fid].filter(m=>m.clanId===cid);
     }
-    return flowerMembers[fid]; // admin sees all
+    return flowerMembers[fid];
   };
 
   // Pre-compute owned counts per color for member/leader — now handled by buildFlowerCfbarInner()
@@ -1538,14 +1543,16 @@ function buildFlowerGrid(){
   const groups={};
   list.forEach(f=>{(groups[f.color]||(groups[f.color]=[])).push(f);});
   const fm={};const fc={};
-  S.flowers.forEach(f=>{
-    const cs=new Set();const ml=[];
-    S.members.forEach(m=>{if((S.ticks[m.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===m.clanId);if(cl)cs.add(cl.name);ml.push({displayName:m.displayName,clanId:m.clanId});}});
-    S.leaders.forEach(l=>{if((S.ticks[l.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===l.clanId);if(cl)cs.add(cl.name);ml.push({displayName:l.displayName,clanId:l.clanId});}});
-    fc[f.id]=[...cs];fm[f.id]=ml;
-  });
-  const gClans=(fid)=>{if(isMember()||isLeader()){const n=myClanName();return fc[fid].filter(x=>x===n);}return fc[fid];};
-  const gMembers=(fid)=>{if(isMember()||isLeader()){const cid=myClanId();return fm[fid].filter(m=>m.clanId===cid);}return fm[fid];};
+  if(!isAdmin()){
+    S.flowers.forEach(f=>{
+      const cs=new Set();const ml=[];
+      S.members.forEach(m=>{if((S.ticks[m.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===m.clanId);if(cl)cs.add(cl.name);ml.push({displayName:m.displayName,clanId:m.clanId});}});
+      S.leaders.forEach(l=>{if((S.ticks[l.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===l.clanId);if(cl)cs.add(cl.name);ml.push({displayName:l.displayName,clanId:l.clanId});}});
+      fc[f.id]=[...cs];fm[f.id]=ml;
+    });
+  }
+  const gClans=(fid)=>{if(isAdmin())return [];if(isMember()||isLeader()){const n=myClanName();return fc[fid].filter(x=>x===n);}return fc[fid];};
+  const gMembers=(fid)=>{if(isAdmin())return [];if(isMember()||isLeader()){const cid=myClanId();return fm[fid].filter(m=>m.clanId===cid);}return fm[fid];};
   return Object.entries(groups).map(([ck,flowers])=>{
     const cv=col(ck);
     const totalInColor=S.flowers.filter(f=>f.color===ck).length;
@@ -1760,16 +1767,22 @@ window.saveTicks=async function(){
 function pageMembers(){
   if(!isAdmin()&&!isLeader()&&!isMember()) return `<div class="empty"><div class="empty-icon">🔒</div>Không có quyền xem</div>`;
 
-  // filter members to current clan if leader/member; admin sees all
+  // filter members to current clan if leader/member; admin sees all (or filters by chosen clan)
+  if(isAdmin() && S._memClan===undefined) S._memClan='all';
   const myMembers = (isLeader()||isMember())
     ? S.members.filter(m=>m.clanId===myClanId())
-    : S.members;
+    : (isAdmin() && S._memClan!=='all') ? S.members.filter(m=>m.clanId===S._memClan) : S.members;
   const myLeaders = (isLeader()||isMember())
     ? S.leaders.filter(l=>l.clanId===myClanId())
-    : S.leaders;
+    : (isAdmin() && S._memClan!=='all') ? S.leaders.filter(l=>l.clanId===S._memClan) : S.leaders;
 
   const total=S.flowers.length;
   const clanName = (isLeader()||isMember()) ? myClanName() : null;
+
+  const clanFilterHtml = isAdmin() ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    <button class="chip ${S._memClan==='all'?'on':''}" onclick="setMemClan('all')">Tất cả</button>
+    ${S.clans.map(c=>`<button class="chip ${S._memClan===c.id?'on':''}" onclick="setMemClan('${c.id}')">🏅 ${esc(c.name)}</button>`).join('')}
+  </div>` : '';
 
   const statsHtml=`<div class="stats">
     <div class="sc"><div class="sv">${myMembers.length+myLeaders.length}</div><div class="sl">${clanName?'TV Hội '+clanName:'Thành viên'}</div></div>
@@ -1819,8 +1832,12 @@ function pageMembers(){
     ?`<div class="empty"><div class="empty-icon">👥</div>Chưa có thành viên</div>`
     :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>#</th><th>Thành viên</th>${isAdmin()?'<th>Hội</th>':''}<th>Sở hữu</th>${isAdmin()?'<th></th>':''}</tr></thead><tbody>
     ${allRows}</tbody></table></div>`;
-  return statsHtml+`<div class="card">${tableHtml}</div>`;
+  return clanFilterHtml+statsHtml+`<div class="card">${tableHtml}</div>`;
 }
+window.setMemClan=function(c){
+  S._memClan=c;
+  render();
+};
 
 // ─── MANAGE PAGE ─────────────────────────────────────────────────────────────
 function pageManage(){
@@ -2842,7 +2859,7 @@ function renderLastLoginTable(){
   if(!S.lastLogins||S.lastLogins.length===0){
     return `<div class="empty"><div class="empty-icon">📋</div>Chưa có dữ liệu đăng nhập.<br><span style="font-size:.76rem">Dữ liệu xuất hiện sau khi mỗi tài khoản đăng nhập lần đầu.</span></div>`;
   }
-  const sorted=[...S.lastLogins].sort((a,b)=>new Date(b.lastSeen)-new Date(a.lastSeen));
+  const sorted=[...S.lastLogins].sort((a,b)=>new Date(b.lastSeen)-new Date(a.lastSeen)).slice(0,10);
   const rows=sorted.map(u=>{
     const roleIcon={admin:'🔓',leader:'🏆',member:'🌸'}[u.role]||'👤';
     const displayName = u.displayName||u.username||u.userId;
@@ -2852,7 +2869,7 @@ function renderLastLoginTable(){
       <td style="font-size:.8rem;color:var(--mist)">${relativeTime(u.lastSeen)}</td>
     </tr>`;
   }).join('');
-  return `<div style="overflow-x:auto"><table class="mtbl">
+  return `<div style="font-size:.72rem;color:var(--mist);margin-bottom:8px">Hiển thị 10 lượt đăng nhập gần nhất</div><div style="overflow-x:auto"><table class="mtbl">
     <thead><tr><th>Tài khoản</th><th>Vai trò</th><th>Đăng nhập lần cuối</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
