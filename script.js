@@ -1495,6 +1495,22 @@ window.confirmDelLeader=function(id){
 window.doDelLeader=async function(id){
   closeModal();setPulse('loading');
   try {
+    // Xóa tài khoản Auth TRƯỚC (lúc row leaders vẫn còn, đề phòng sau này thêm check clan_id)
+    try {
+      const { data: sessData } = await sb.auth.getSession();
+      const jwt = sessData?.session?.access_token;
+      const delRes = await fetch(CREATE_USER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+        body: JSON.stringify({ action: 'delete', refId: id })
+      });
+      const delResult = await delRes.json();
+      if(!delRes.ok || !delResult.success){
+        toast('⚠️ Xóa Auth thất bại: '+(delResult.error||'lỗi không rõ'),'er');
+      }
+    } catch(authErr) {
+      toast('⚠️ Xóa Auth lỗi network: '+authErr.message,'er');
+    }
     // Clear leaderId of members linked to this leader — giữ đầy đủ field khác để tránh null
     const affectedMembers=S.members.filter(m=>m.leaderId===id);
     const clearPromises=affectedMembers.map(m=>fsSet('members',m.id,{
@@ -1957,6 +1973,23 @@ window.confirmDelMember=function(id){
 window.doDelMember=async function(id){
   closeModal();setPulse('loading');
   try {
+    // Xóa tài khoản Auth TRƯỚC (lúc row members vẫn còn để Edge Function check quyền/clan_id)
+    try {
+      const { data: sessData } = await sb.auth.getSession();
+      const jwt = sessData?.session?.access_token;
+      const delRes = await fetch(CREATE_USER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+        body: JSON.stringify({ action: 'delete', refId: id })
+      });
+      const delResult = await delRes.json();
+      if(!delRes.ok || !delResult.success){
+        toast('⚠️ Xóa Auth thất bại: '+(delResult.error||'lỗi không rõ'),'er');
+      }
+    } catch(authErr) {
+      toast('⚠️ Xóa Auth lỗi network: '+authErr.message,'er');
+    }
+    // Sau đó mới xóa row members + ticks
     await Promise.all([fsDel('members',id),fsDel('ticks',id)]);
     S.members=S.members.filter(m=>m.id!==id);
     delete S.ticks[id];
