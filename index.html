@@ -52,11 +52,12 @@ body::before{
 /* ─── Header kiểu "thanh ngọc" treo trên cùng, viền vàng kim, hoa văn vân mây ─── */
 .bar{
   background:linear-gradient(180deg,#a8487a,#7a3b5e 90%);
-  height:58px;display:flex;align-items:center;padding:0 16px;gap:10px;
+  min-height:58px;display:flex;align-items:center;padding:0 16px;gap:8px;
   position:sticky;top:0;z-index:200;
   box-shadow:0 3px 0 var(--gold), 0 6px 16px rgba(122,59,94,.35);
   border-bottom:1px solid rgba(245,207,120,.5);
   position:relative;overflow:hidden;
+  flex-wrap:nowrap;
 }
 .bar::after{
   content:'';position:absolute;inset:0;pointer-events:none;opacity:.16;
@@ -65,24 +66,33 @@ body::before{
 }
 .bar-logo{
   font-family:'Noto Serif SC',serif;
-  font-size:1.5rem;font-weight:700;color:#fff8e7;display:flex;align-items:center;gap:8px;
-  letter-spacing:.04em;text-shadow:0 1px 0 rgba(0,0,0,.18), 0 0 10px rgba(245,207,120,.35);
-  position:relative;z-index:1;
+  font-size:clamp(1rem,5.2vw,1.5rem);font-weight:700;color:#fff8e7;display:flex;align-items:center;gap:8px;
+  letter-spacing:.02em;text-shadow:0 1px 0 rgba(0,0,0,.18), 0 0 10px rgba(245,207,120,.35);
+  position:relative;z-index:1;white-space:nowrap;flex-shrink:0;
 }
-.bar-sp{flex:1;position:relative;z-index:1}
-.bar-sync{display:flex;align-items:center;gap:5px;font-size:.72rem;color:#ffe1ec;position:relative;z-index:1}
-.bar-user{display:flex;align-items:center;gap:6px;font-size:.76rem;color:#fff0f5;cursor:pointer;padding:4px 10px;border-radius:var(--rp);border:1px solid rgba(245,207,120,.55);background:rgba(255,255,255,.06);transition:background .13s;position:relative;z-index:1}
+.bar-sp{flex:1;min-width:4px;position:relative;z-index:1}
+.bar-sync{display:flex;align-items:center;gap:5px;font-size:.72rem;color:#ffe1ec;position:relative;z-index:1;white-space:nowrap;flex-shrink:0}
+.bar-sync span{display:none}
+.bar-user{display:flex;align-items:center;gap:6px;font-size:.76rem;color:#fff0f5;cursor:pointer;padding:4px 10px;border-radius:var(--rp);border:1px solid rgba(245,207,120,.55);background:rgba(255,255,255,.06);transition:background .13s;position:relative;z-index:1;white-space:nowrap;flex-shrink:0}
 .bar-user:hover{background:rgba(255,255,255,.16)}
 .pulse{width:8px;height:8px;border-radius:50%;background:#7ed6a0;flex-shrink:0;transition:background .3s;box-shadow:0 0 6px rgba(126,214,160,.7)}
 .pulse.loading{background:#ffd76a;animation:blink 1s infinite}
 .pulse.err{background:#ff7a8a}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@media (max-width:400px){
+  .bar{padding:0 10px;gap:5px}
+  .bar-logo{font-size:1rem;gap:5px}
+  .bar-user{padding:4px 7px;font-size:.7rem;gap:3px}
+}
 
 .wrap{max-width:900px;margin:0 auto;padding:20px 14px 90px}
 
 /* ─── Tabs điều hướng — như dải lụa/nút bo tròn trong game ─── */
-.nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px}
-.nvb{padding:8px 16px;border-radius:var(--rp);font-size:.8rem;font-weight:700;border:1.5px solid var(--bd);background:var(--white);color:var(--mist);cursor:pointer;transition:all .14s;white-space:nowrap;font-family:inherit;box-shadow:0 1px 0 rgba(255,255,255,.6) inset}
+.nav{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:22px;
+  mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);
+  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);}
+.nav::-webkit-scrollbar{display:none}
+.nvb{padding:6px 12px;border-radius:var(--rp);font-size:.76rem;font-weight:700;border:1.5px solid var(--bd);background:var(--white);color:var(--mist);cursor:pointer;transition:all .14s;white-space:nowrap;font-family:inherit;box-shadow:0 1px 0 rgba(255,255,255,.6) inset;flex-shrink:0}
 .nvb:hover{color:var(--forest2);border-color:var(--leaf)}
 .nvb.on{background:linear-gradient(180deg,#ff8fb8,#e8799a);color:#fff;border-color:var(--gold2);box-shadow:0 3px 10px rgba(232,121,154,.4)}
 
@@ -284,8 +294,11 @@ select.fi{cursor:pointer;appearance:none;background-image:url("data:image/svg+xm
 .sbar input{padding-left:38px}
 .sico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--haze);pointer-events:none;font-size:14px}
 
-.cfbar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:18px}
-.ctab{padding:4px 12px;border-radius:var(--rp);font-size:.74rem;font-weight:700;border:1.5px solid var(--bd);background:var(--white);color:var(--mist);cursor:pointer;transition:all .12s}
+.cfbar{display:flex;gap:2px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:18px;
+  mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);
+  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);}
+.cfbar::-webkit-scrollbar{display:none}
+.ctab{padding:4px 12px;border-radius:var(--rp);font-size:.74rem;font-weight:700;border:1.5px solid var(--bd);background:var(--white);color:var(--mist);cursor:pointer;transition:all .12s;white-space:nowrap;flex-shrink:0}
 .ctab:hover{border-color:var(--mist)}
 .ctab.on{border-width:2px;color:var(--ink);box-shadow:0 2px 6px rgba(168,72,122,.18)}
 
@@ -692,12 +705,12 @@ const UPDATE_PASSWORD_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 const COLS = [
-  {k:'trang',l:'Trắng/Xám', h:'#94a3b8'},
-  {k:'xanh', l:'Xanh lá',   h:'#22c55e'},
-  {k:'lam',  l:'Xanh lam',  h:'#3b82f6'},
-  {k:'tim',  l:'Tím',        h:'#8b5cf6'},
-  {k:'cam',  l:'Cam',        h:'#f97316'},
-  {k:'do',   l:'Đỏ hồng',    h:'#e91e8c'},
+  {k:'trang',l:'Trắng/Xám', sl:'Trắng', h:'#94a3b8'},
+  {k:'xanh', l:'Xanh lá',   sl:'Lá',    h:'#22c55e'},
+  {k:'lam',  l:'Xanh lam',  sl:'Lam',   h:'#3b82f6'},
+  {k:'tim',  l:'Tím',        sl:'Tím',  h:'#8b5cf6'},
+  {k:'cam',  l:'Cam',        sl:'Cam',  h:'#f97316'},
+  {k:'do',   l:'Đỏ hồng',    sl:'Đỏ',   h:'#e91e8c'},
 ];
 const CM = Object.fromEntries(COLS.map(c=>[c.k,c]));
 const col = k => CM[k]||{k:'trang',l:k||'?',h:'#94a3b8'};
@@ -1518,12 +1531,12 @@ function buildFlowerCfbarInner(){
   const totalAll=S.flowers.length;
   const ownedAll=isMember()||isLeader()?getOwnedCount('all'):null;
   const allOn=S.fcolor==='all';
-  const allBtn=`<button class="ctab ${allOn?'on':''}" onclick="setFcolor('all')" style="${allOn?'border-color:var(--forest);color:var(--forest)':''}">Tất cả (${ownedAll!==null?ownedAll+'/'+totalAll:totalAll})</button>`;
+  const allBtn=`<button class="ctab ${allOn?'on':''}" onclick="setFcolor('all')" style="${allOn?'border-color:var(--forest);color:var(--forest)':''}"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#cbd5e1;margin-right:4px;vertical-align:middle"></span>${ownedAll!==null?ownedAll+'/'+totalAll:totalAll}</button>`;
   const colorBtns=COLS.filter(c=>S.flowers.some(f=>f.color===c.k)).map(c=>{
     const total=S.flowers.filter(f=>f.color===c.k).length;
     const owned=isMember()||isLeader()?getOwnedCount(c.k):null;
     const on=S.fcolor===c.k;
-    return `<button class="ctab ${on?'on':''}" onclick="setFcolor('${c.k}')" style="${on?`border-color:${c.h};color:${c.h}`:''}"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c.h};margin-right:3px;vertical-align:middle"></span>${c.l} (${owned!==null?owned+'/'+total:total})</button>`;
+    return `<button class="ctab ${on?'on':''}" onclick="setFcolor('${c.k}')" style="${on?`border-color:${c.h};color:${c.h}`:''}"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${c.h};margin-right:4px;vertical-align:middle"></span>${owned!==null?owned+'/'+total:total}</button>`;
   }).join('');
   return allBtn+colorBtns;
 }
