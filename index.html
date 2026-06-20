@@ -92,6 +92,7 @@ body::before{
   mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);
   -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);}
 .nav::-webkit-scrollbar{display:none}
+.nav-main{flex-wrap:wrap;overflow-x:visible;mask-image:none;-webkit-mask-image:none;}
 .nvb{padding:6px 12px;border-radius:var(--rp);font-size:.76rem;font-weight:700;border:1.5px solid var(--bd);background:var(--white);color:var(--mist);cursor:pointer;transition:all .14s;white-space:nowrap;font-family:inherit;box-shadow:0 1px 0 rgba(255,255,255,.6) inset;flex-shrink:0}
 .nvb:hover{color:var(--forest2);border-color:var(--leaf)}
 .nvb.on{background:linear-gradient(180deg,#ff8fb8,#e8799a);color:#fff;border-color:var(--gold2);box-shadow:0 3px 10px rgba(232,121,154,.4)}
@@ -1239,9 +1240,10 @@ function renderNav(){
   if(isAdmin()||isLeader()||isMember()) tabs.push({k:'flowers',l:'🌸 Hoa'});
   if(isMember()||isLeader()) tabs.push({k:'tick',l:'✅ Đánh dấu'});
   if(isAdmin()||isLeader()||isMember()) tabs.push({k:'members',l:'👥 Thành viên'});
+  if(isAdmin()||isLeader()||isMember()) tabs.push({k:'rank',   l:'🏆 Xếp hạng'});
   if(isAdmin()||isLeader()) tabs.push({k:'manage',l:'⚙️ Quản lý'});
   if(isAdmin()) tabs.push({k:'settings',l:'🔧 Cài đặt'});
-  return `<div class="nav">${tabs.map(t=>`<button class="nvb ${S.page===t.k?'on':''}" onclick="goto('${t.k}')">${t.l}</button>`).join('')}</div>`;
+  return `<div class="nav nav-main">${tabs.map(t=>`<button class="nvb ${S.page===t.k?'on':''}" onclick="goto('${t.k}')">${t.l}</button>`).join('')}</div>`;
 }
 window.goto=function(p){
   if(S.page==='tick' && p!=='tick'){
@@ -1262,6 +1264,7 @@ function renderPage(){
     if(S.page==='flowers') return pageFlowers();
     if(S.page==='tick')    return pageTick();
     if(S.page==='members') return pageMembers();
+    if(S.page==='rank')    return pageRank();
     if(S.page==='manage')  return pageManage();
     if(S.page==='settings')return pageSettings();
     return pageFlowers();
@@ -2886,6 +2889,175 @@ function renderLastLoginTable(){
     <thead><tr><th>Tài khoản</th><th>Vai trò</th><th>Đăng nhập lần cuối</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
+}
+
+// ─── BẢNG XẾP HẠNG ───────────────────────────────────────────────────────────
+(function(){
+  if(document.getElementById('rank-css')) return;
+  const s=document.createElement('style');
+  s.id='rank-css';
+  s.textContent=`
+/* ── Sub-tab ── */
+.rank-tabs{display:flex;gap:8px;margin-bottom:18px}
+.rank-tab{
+  flex:1;padding:10px 12px;border-radius:var(--rp);font-size:.84rem;font-weight:700;
+  border:2px solid var(--bd);background:var(--white);color:var(--mist);
+  cursor:pointer;transition:all .14s;text-align:center;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.rank-tab:hover{border-color:var(--leaf);color:var(--ink)}
+.rank-tab.on{color:#fff;border-color:transparent;
+  box-shadow:0 3px 12px rgba(0,0,0,.18)}
+.rank-dot{
+  width:13px;height:13px;border-radius:50%;flex-shrink:0;
+  box-shadow:0 1px 4px rgba(0,0,0,.2);
+}
+
+/* ── Podium ── */
+.podium{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
+
+/* Badge — bo tròn, KHÔNG có ::before vân mây */
+.rnk-badge{
+  position:relative;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 24px;
+  border-radius:999px;
+  font-weight:800;font-size:.88rem;
+  font-family:'Noto Serif SC',serif;
+  letter-spacing:.02em;
+  cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+  white-space:nowrap;
+  /* Shine chỉ dùng ::after */
+}
+.rnk-badge:hover{transform:translateY(-2px);}
+.rnk-badge::after{
+  content:'';position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(180deg,rgba(255,255,255,.5) 0%,rgba(255,255,255,.1) 45%,transparent 52%);
+  pointer-events:none;
+}
+.rnk-icon{font-size:1rem;flex-shrink:0;position:relative;z-index:1}
+.rnk-name{position:relative;z-index:1}
+
+/* VÀNG */
+.rnk-gold{
+  background:linear-gradient(135deg,#fff9d0 0%,#ffe566 35%,#ffd700 60%,#ffecaa 100%);
+  border:2px solid #e6c200;color:#7a5800;
+  box-shadow:0 0 0 1px rgba(255,220,0,.4),0 5px 18px rgba(184,134,11,.35),
+    inset 0 1px 0 rgba(255,255,255,.8),inset 0 -1px 0 rgba(184,134,11,.3);
+}
+/* BẠC */
+.rnk-silver{
+  background:linear-gradient(135deg,#f4f4f4 0%,#dcdcdc 35%,#c0c0c0 60%,#e8e8e8 100%);
+  border:2px solid #a8a8a8;color:#3a3a3a;
+  box-shadow:0 0 0 1px rgba(200,200,200,.5),0 5px 16px rgba(100,100,100,.28),
+    inset 0 1px 0 rgba(255,255,255,.9),inset 0 -1px 0 rgba(100,100,100,.18);
+}
+/* ĐỒNG */
+.rnk-bronze{
+  background:linear-gradient(135deg,#fdf0e4 0%,#e8a96a 35%,#cd7f32 60%,#f0c080 100%);
+  border:2px solid #c07830;color:#5a2800;
+  box-shadow:0 0 0 1px rgba(205,127,50,.35),0 5px 16px rgba(139,69,19,.28),
+    inset 0 1px 0 rgba(255,255,255,.7),inset 0 -1px 0 rgba(139,69,19,.22);
+}
+
+/* ── Hàng top 4-10 ── */
+.rank-list{display:flex;flex-direction:column;gap:6px}
+.rank-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 13px;border-radius:12px;
+  background:var(--white);border:1.5px solid var(--bd);
+  box-shadow:0 1px 4px rgba(168,72,122,.07);
+  transition:background .12s;cursor:pointer;
+}
+.rank-row:hover{background:var(--sage);}
+.rank-num{font-size:.8rem;font-weight:800;color:var(--mist);width:22px;text-align:center;flex-shrink:0}
+.rank-name-link{flex:1;font-size:.84rem;font-weight:700;color:var(--ink)}
+.rank-count{
+  font-size:.74rem;font-weight:700;padding:2px 9px;border-radius:var(--rp);
+  background:var(--sage);border:1px solid var(--bd);color:var(--mist);flex-shrink:0;
+}
+`;
+  document.head.appendChild(s);
+})();
+
+function calcRankByColor(colorKey){
+  const all=[];
+  S.members.forEach(m=>{
+    const cnt=(S.ticks[m.id]||[]).filter(fid=>{const f=S.flowers.find(x=>x.id===fid);return f&&f.color===colorKey;}).length;
+    if(cnt>0) all.push({id:m.id,name:m.displayName,role:'member',cnt});
+  });
+  S.leaders.forEach(l=>{
+    const cnt=(S.ticks[l.id]||[]).filter(fid=>{const f=S.flowers.find(x=>x.id===fid);return f&&f.color===colorKey;}).length;
+    if(cnt>0) all.push({id:l.id,name:l.displayName,role:'leader',cnt});
+  });
+  all.sort((a,b)=>b.cnt-a.cnt);
+  return all.slice(0,10);
+}
+
+function renderPodium(top3, colorHex){
+  if(!top3.length) return `<div class="empty" style="padding:24px 0"><div class="empty-icon">📊</div>Chưa có dữ liệu</div>`;
+  // Width chuẩn theo tên dài nhất
+  const maxLen = top3.reduce((a,u)=>Math.max(a,u.name.length),0);
+  const minW = `calc(${Math.max(maxLen,6)}ch + 72px)`;
+  const medals=['🥇','🥈','🥉'];
+  const cls=['rnk-gold','rnk-silver','rnk-bronze'];
+  const badges=top3.map((u,i)=>`
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+      <div class="rnk-badge ${cls[i]}" style="min-width:${minW}"
+           onclick="openMemberFlowers('${esc(u.id)}','${u.role}')">
+        <span class="rnk-icon">${medals[i]}</span>
+        <span class="rnk-name">${esc(u.name)}</span>
+        <span class="rnk-icon">${medals[i]}</span>
+      </div>
+      <div style="font-size:.66rem;color:var(--mist)">🌸 ${u.cnt} hoa</div>
+    </div>`).join('');
+  return `<div class="podium">${badges}</div>`;
+}
+
+function renderRankList(ranked, colorHex){
+  if(ranked.length<=3) return '';
+  const rows=ranked.slice(3).map((u,i)=>`
+    <div class="rank-row" onclick="openMemberFlowers('${esc(u.id)}','${u.role}')">
+      <span class="rank-num">${i+4}</span>
+      <span class="rank-name-link">🌸 ${esc(u.name)}</span>
+      <span class="rank-count" style="background:${colorHex}18;border-color:${colorHex}44;color:${colorHex}">${u.cnt} 🌸</span>
+    </div>`).join('');
+  return `<div class="rank-list">${rows}</div>`;
+}
+
+window.setRankTab=function(k){
+  S._rankTab=k;
+  render();
+};
+function pageRank(){
+  if(!S._rankTab) S._rankTab='do';
+  const colorKey=S._rankTab;
+  const cv=col(colorKey);
+  const ranked=calcRankByColor(colorKey);
+
+  // Thứ tự: đỏ trước, cam sau
+  const subTabs=['do','cam'].map(k=>{
+    const c=col(k);
+    const on=S._rankTab===k;
+    const bg=k==='do'?'#e91e8c':'#f97316';
+    return `<button class="rank-tab ${on?'on':''}"
+      onclick="setRankTab('${k}')"
+      style="${on?`background:${bg};border-color:${bg}`:''}">
+      <span class="rank-dot" style="background:${c.h}${on?';box-shadow:0 0 0 2px rgba(255,255,255,.5)':''}"></span>
+      Bảng hạng ${c.sl}
+    </button>`;
+  }).join('');
+
+  return `
+  <div class="card cn-frame">
+    <div class="card-title" style="justify-content:center">🏆 Bảng Xếp Hạng 🏆</div>
+    <div class="rank-tabs">${subTabs}</div>
+    ${renderPodium(ranked.slice(0,3), cv.h)}
+    ${renderRankList(ranked, cv.h)}
+    ${ranked.length?`<div style="font-size:.68rem;color:var(--mist);text-align:center;margin-top:14px;opacity:.7">
+      💡 Nhấn tên để xem chi tiết hoa của thành viên</div>`:''}
+  </div>`;
 }
 
 // ─── SETTINGS PAGE (ADMIN ONLY) ──────────────────────────────────────────────
