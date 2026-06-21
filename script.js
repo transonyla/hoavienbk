@@ -895,20 +895,25 @@ function pageFlowers(){
 
   // Build clan + member ownership map: for each flower, which clans/members own it
   // (Admin: bỏ qua hoàn toàn — admin không cần xem hội/thành viên trong card hoa, tránh lag)
+  // Member/leader: chỉ cần xem người CÙNG HỘI, nên lọc danh sách member/leader theo hội
+  // TRƯỚC khi lặp qua từng hoa — giảm tải đáng kể so với lặp toàn bộ rồi mới lọc hiển thị.
   const flowerClans={};
   const flowerMembers={}; // {flowerId: [{displayName, clanId}]}
   if(!isAdmin()){
+    const myCid=myClanId();
+    const scopedMembers=S.members.filter(m=>m.clanId===myCid);
+    const scopedLeaders=S.leaders.filter(l=>l.clanId===myCid);
     S.flowers.forEach(f=>{
       const clanSet=new Set();
       const mList=[];
-      S.members.forEach(m=>{
+      scopedMembers.forEach(m=>{
         if((S.ticks[m.id]||[]).includes(f.id)){
           const clan=S.clans.find(c=>c.id===m.clanId);
           if(clan) clanSet.add(clan.name);
           mList.push({displayName:m.displayName,clanId:m.clanId});
         }
       });
-      S.leaders.forEach(l=>{
+      scopedLeaders.forEach(l=>{
         if((S.ticks[l.id]||[]).includes(f.id)){
           const clan=S.clans.find(c=>c.id===l.clanId);
           if(clan) clanSet.add(clan.name);
@@ -1021,10 +1026,14 @@ function buildFlowerGrid(){
   list.forEach(f=>{(groups[f.color]||(groups[f.color]=[])).push(f);});
   const fm={};const fc={};
   if(!isAdmin()){
+    // Chỉ lặp member/leader CÙNG HỘI — member/leader chỉ cần xem người cùng hội của họ.
+    const myCid=myClanId();
+    const scopedMembers=S.members.filter(m=>m.clanId===myCid);
+    const scopedLeaders=S.leaders.filter(l=>l.clanId===myCid);
     S.flowers.forEach(f=>{
       const cs=new Set();const ml=[];
-      S.members.forEach(m=>{if((S.ticks[m.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===m.clanId);if(cl)cs.add(cl.name);ml.push({displayName:m.displayName,clanId:m.clanId});}});
-      S.leaders.forEach(l=>{if((S.ticks[l.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===l.clanId);if(cl)cs.add(cl.name);ml.push({displayName:l.displayName,clanId:l.clanId});}});
+      scopedMembers.forEach(m=>{if((S.ticks[m.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===m.clanId);if(cl)cs.add(cl.name);ml.push({displayName:m.displayName,clanId:m.clanId});}});
+      scopedLeaders.forEach(l=>{if((S.ticks[l.id]||[]).includes(f.id)){const cl=S.clans.find(c=>c.id===l.clanId);if(cl)cs.add(cl.name);ml.push({displayName:l.displayName,clanId:l.clanId});}});
       fc[f.id]=[...cs];fm[f.id]=ml;
     });
   }
@@ -2476,13 +2485,15 @@ function renderLastLoginTable(){
 })();
 
 function calcRankByColor(colorKey){
+  // Map lookup O(1) thay cho S.flowers.find() O(N) lặp lại mỗi lần — giảm tải đáng kể khi data lớn.
+  const flowerById=new Map(S.flowers.map(f=>[f.id,f]));
   const all=[];
   S.members.forEach(m=>{
-    const cnt=(S.ticks[m.id]||[]).filter(fid=>{const f=S.flowers.find(x=>x.id===fid);return f&&f.color===colorKey;}).length;
+    const cnt=(S.ticks[m.id]||[]).filter(fid=>{const f=flowerById.get(fid);return f&&f.color===colorKey;}).length;
     if(cnt>0) all.push({id:m.id,name:m.displayName,role:'member',cnt});
   });
   S.leaders.forEach(l=>{
-    const cnt=(S.ticks[l.id]||[]).filter(fid=>{const f=S.flowers.find(x=>x.id===fid);return f&&f.color===colorKey;}).length;
+    const cnt=(S.ticks[l.id]||[]).filter(fid=>{const f=flowerById.get(fid);return f&&f.color===colorKey;}).length;
     if(cnt>0) all.push({id:l.id,name:l.displayName,role:'leader',cnt});
   });
   all.sort((a,b)=>b.cnt-a.cnt);
