@@ -657,9 +657,7 @@ function renderAnnouncement(){
   }
   area.innerHTML=`<div class="ann-banner">
     <span class="ann-icon">📢</span>
-    <div class="ann-marquee-wrap">
-      <span class="ann-text">${esc(S.announcement.content)}</span>
-    </div>
+    <span class="ann-text">${esc(S.announcement.content)}</span>
     <span class="ann-close" onclick="dismissAnnouncement()" title="Ẩn thông báo">✕</span>
   </div>`;
 }
@@ -1253,6 +1251,8 @@ window.saveTicks=async function(){
   btn.disabled=true;btn.innerHTML='<div class="sp"></div>';
   setPulse('loading');
   try {
+    const fresh = await ensureFreshSession();
+    if(!fresh){toast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.','er');btn.disabled=false;btn.innerHTML='💾 Lưu';setPulse('');return;}
     // Hội trưởng tick thay: lưu vào memberId được chọn, không phải id leader
     const memberId = (isLeader() && S.proxyMemberId) ? S.proxyMemberId : S.session.id;
     const saved=[...S.msel];
@@ -1260,8 +1260,7 @@ window.saveTicks=async function(){
     const existing=S.ticks[memberId]||[];
     const same=existing.length===saved.length && saved.every(id=>existing.includes(id));
     if(same){toast('Không có thay đổi nào 🌿','wn');btn.disabled=false;btn.innerHTML='💾 Lưu';setPulse('');return;}
-    const nowIso=new Date().toISOString();
-    await fsSet('ticks',memberId,{flowerIds:saved,updatedAt:nowIso});
+    await fsSet('ticks',memberId,{flowerIds:saved,updatedAt:new Date().toISOString()});
     S.ticks[memberId]=saved;
     S.msel=new Set(saved);
     S._tickMarkedSnapshot=new Set(saved);
@@ -2650,11 +2649,7 @@ function calcRankByColor(colorKey){
     const cnt=(S.ticks[l.id]||[]).filter(fid=>{const f=flowerById.get(fid);return f&&f.color===colorKey;}).length;
     if(cnt>0) all.push({id:l.id,name:l.displayName,role:'leader',cnt});
   });
-  all.sort((a,b)=>
-    b.cnt-a.cnt ||
-    (S.ticks[b.id]||[]).length-(S.ticks[a.id]||[]).length ||
-    a.id.localeCompare(b.id)
-  );
+  all.sort((a,b)=>b.cnt-a.cnt);
   return all.slice(0,10);
 }
 
