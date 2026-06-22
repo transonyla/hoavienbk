@@ -187,6 +187,8 @@ let S = {
   rentals:[],        // Hội Đã Thuê
   trials:[],         // Hội Dùng Thử
   lastLogins:[],     // Last login per user (admin only)
+  announcement:null, // Thông báo hệ thống {id, content, updatedAt} hoặc null nếu không có
+  announcementDismissed:false, // Đã đóng banner trong phiên hiện tại chưa
   loaded:false, err:null,
   page:'flowers', fcolor:'all', tcolor:'all', fq:'', tq:'',
   msel:new Set(),
@@ -528,6 +530,11 @@ async function loadAll(force=false){
         displayName:r.display_name||r.username, role:r.role, lastSeen:r.last_seen
       }));
     } else { S.rentals=[]; S.trials=[]; S.lastLogins=[]; }
+    // Thông báo hệ thống — tải cho MỌI role đã đăng nhập (admin/leader/member), lỗi không crash app
+    try {
+      const { data: annData } = await sb.from('system_announcement').select('*').eq('id','current').maybeSingle();
+      S.announcement = annData ? { id: annData.id, content: annData.content, updatedAt: annData.updated_at } : null;
+    } catch(e){ S.announcement = null; }
     S.flowers=fl.filter(r=>r.name).map(r=>({
       id:r.id, name:r.name, color:r.color||'trang',
       imgUrl:r.img_url||'', sortOrder:Number(r.sort_order)||0,
@@ -593,6 +600,7 @@ function render(){
   const app=document.getElementById('app');
   if(!app) return;
   renderBarUser();
+  renderAnnouncement();
   if(!S.loaded){app.innerHTML='<div class="loading"><div class="sp"></div> Đang tải...</div>';return;}
   if(S.err){app.innerHTML=renderErr();return;}
   if(!S.session){app.innerHTML=renderLogin();return;}
@@ -636,6 +644,29 @@ function renderBarUser(){
     }
   }
 }
+
+// Banner thông báo hệ thống — nhỏ, nền mờ nhạt, không phải popup, không gây khó chịu.
+// Hiện cho mọi role đã đăng nhập (session cũ còn hạn hoặc vừa login đều chạy qua render() sau loadAll).
+// Tồn tại liên tục cho tới khi admin xóa thông báo khỏi CSDL — người dùng chỉ có thể ẩn TẠM trong phiên hiện tại (✕),
+// không phải xóa khỏi hệ thống.
+function renderAnnouncement(){
+  const area=document.getElementById('announcement-area');
+  if(!area) return;
+  if(!S.session || !S.announcement || !S.announcement.content || S.announcementDismissed){
+    area.innerHTML=''; return;
+  }
+  area.innerHTML=`<div class="ann-banner">
+    <span class="ann-icon">📢</span>
+    <div class="ann-marquee-wrap">
+      <span class="ann-text">${esc(S.announcement.content)}</span>
+    </div>
+    <span class="ann-close" onclick="dismissAnnouncement()" title="Ẩn thông báo">✕</span>
+  </div>`;
+}
+window.dismissAnnouncement=function(){
+  S.announcementDismissed=true;
+  renderAnnouncement();
+};
 
 window.openGuide=function(){
   const role=S.session?.role;
@@ -1338,6 +1369,7 @@ function pageManage(){
     {k:'members',l:'👥 Thành viên',  fn:manageAllMembers},
     {k:'rentals',l:'🏠 Hội Đã Thuê', fn:manageRentals},
     {k:'trials', l:'⏳ Hội Dùng Thử',fn:manageTrials},
+    {k:'announcement', l:'📢 Thông Báo', fn:manageAnnouncement},
   ];
   const tabBar=`<div class="nav" style="margin-bottom:16px">${tabs.map(t=>`<button class="nvb ${S._manageTab===t.k?'on':''}" onclick="setManageTab('${t.k}')">${t.l}</button>`).join('')}</div>`;
   const active=tabs.find(t=>t.k===S._manageTab)||tabs[0];
@@ -2328,6 +2360,127 @@ window.doDelTrial=async function(id){
     const { error } = await sb.from('clan_trials').delete().eq('id',id);
     if(error) throw new Error(error.message);
     S.trials=S.trials.filter(x=>x.id!==id);
+    toast('Đã xóa!');
+  } catch(e){toast('Lỗi: '+e.message,'er');}
+  setPulse('');render();
+};
+
+// ── THÔNG BÁO HỆ THỐNG (ADMIN) ─────────────────────────────────────────────
+// Bảng system_announcement chỉ 1 row duy nhất (id cố định 'current').
+// Thêm → insert row. Sửa → update content. Xóa → xóa hẳn row (nhẹ data, không giữ lịch sử).
+// Đảm bảo JWT còn hạn trước khi ghi dữ liệu nhạy cảm (RLS).
+// Cần thiết riêng cho admin vì admin login qua setSession() thủ công (token từ Edge Function admin-login),
+// không qua signInWithPassword trực tiếp ở client, nên với session rất cũ (qua đêm) JWT có thể đã hết hạn
+// mà cơ chế auto-refresh ngầm chưa kịp xử lý trước khi gọi insert/update/delete → bị RLS từ chối.
+async function ensureFreshSession(){
+  const { data } = await sb.auth.getSession();
+  const session = data?.session;
+  if(!session) return false;
+  const expiresAt = session.expires_at; // unix timestamp (giây)
+  const nowSec = Math.floor(Date.now()/1000);
+  // Còn dưới 60 giây hoặc đã hết hạn → chủ động refresh trước khi ghi
+  if(!expiresAt || expiresAt - nowSec < 60){
+    const { error } = await sb.auth.refreshSession();
+    if(error) return false;
+  }
+  return true;
+}
+
+function manageAnnouncement(){
+  if(!isAdmin()) return '';
+  const ann = S.announcement;
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-title">📢 Thông Báo Hệ Thống</div>
+    <div style="font-size:.75rem;color:var(--mist);margin-bottom:14px;line-height:1.6">
+      📌 Thông báo hiện dưới dạng banner nhỏ phía trên cùng trang, cho mọi người đã đăng nhập (kể cả phiên đăng nhập cũ còn hạn). Banner tồn tại cho tới khi bạn xóa thông báo này khỏi hệ thống.
+    </div>
+    ${ann
+      ? `<div style="background:var(--bg2,#fdf3f7);border:1.5px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px">
+          <div style="font-size:.85rem;color:var(--ink);line-height:1.6;margin-bottom:8px">${esc(ann.content)}</div>
+          <div style="font-size:.68rem;color:var(--mist)">Cập nhật lần cuối: ${ann.updatedAt ? new Date(ann.updatedAt).toLocaleString('vi-VN') : '—'}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-g btn-sm" onclick="openEditAnnouncement()">✏️ Sửa</button>
+          <button class="btn btn-r btn-sm" onclick="confirmDelAnnouncement()">🗑️ Xóa</button>
+        </div>`
+      : `<div class="empty"><div class="empty-icon">📢</div>Chưa có thông báo nào
+          <div style="margin-top:14px"><button class="btn btn-g" onclick="openAddAnnouncement()">+ Thêm thông báo</button></div>
+        </div>`
+    }
+  </div>`;
+}
+window.openAddAnnouncement=function(){
+  openModal('📢 Thêm Thông Báo',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Nội dung thông báo *</label>
+        <textarea class="fi" id="ann-content" rows="4" style="resize:vertical;font-family:inherit" placeholder="Nhập nội dung thông báo..."></textarea>
+      </div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doAddAnnouncement()">Thêm</button>`
+  );
+};
+window.doAddAnnouncement=async function(){
+  const content=document.getElementById('ann-content')?.value.trim();
+  if(!content){toast('Nhập nội dung thông báo!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const ok = await ensureFreshSession();
+    if(!ok){ toast('Phiên đăng nhập đã hết hạn, vui lòng đăng xuất rồi đăng nhập lại!','er'); if(btn){btn.disabled=false;btn.innerHTML='Thêm';} setPulse(''); return; }
+    const { data, error } = await sb.from('system_announcement')
+      .upsert({ id:'current', content }, { onConflict:'id' })
+      .select().single();
+    if(error) throw new Error(error.message);
+    S.announcement = { id:data.id, content:data.content, updatedAt:data.updated_at };
+    S.announcementDismissed=false; // thông báo mới → hiện lại cho chính admin luôn
+    closeModal();toast('Đã thêm thông báo!');
+    render();
+  } catch(e){toast('Lỗi: '+e.message,'er');if(btn){btn.disabled=false;btn.innerHTML='Thêm';}}
+  setPulse('');
+};
+window.openEditAnnouncement=function(){
+  if(!S.announcement) return;
+  openModal('✏️ Sửa Thông Báo',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Nội dung thông báo *</label>
+        <textarea class="fi" id="ann-content" rows="4" style="resize:vertical;font-family:inherit">${esc(S.announcement.content)}</textarea>
+      </div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doEditAnnouncement()">Lưu</button>`
+  );
+};
+window.doEditAnnouncement=async function(){
+  const content=document.getElementById('ann-content')?.value.trim();
+  if(!content){toast('Nhập nội dung thông báo!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const ok = await ensureFreshSession();
+    if(!ok){ toast('Phiên đăng nhập đã hết hạn, vui lòng đăng xuất rồi đăng nhập lại!','er'); if(btn){btn.disabled=false;btn.innerHTML='Lưu';} setPulse(''); return; }
+    const { data, error } = await sb.from('system_announcement')
+      .update({ content, updated_at: new Date().toISOString() })
+      .eq('id','current').select().single();
+    if(error) throw new Error(error.message);
+    S.announcement = { id:data.id, content:data.content, updatedAt:data.updated_at };
+    S.announcementDismissed=false; // nội dung đổi → hiện lại banner cho mọi người
+    closeModal();toast('Đã cập nhật!');render();
+  } catch(e){toast('Lỗi: '+e.message,'er');if(btn){btn.disabled=false;btn.innerHTML='Lưu';}}
+  setPulse('');
+};
+window.confirmDelAnnouncement=function(){
+  openModal('⚠️ Xóa thông báo',`Xóa thông báo hệ thống hiện tại? Banner sẽ biến mất khỏi trang của mọi người.`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-r" onclick="doDelAnnouncement()">Xóa</button>`);
+};
+window.doDelAnnouncement=async function(){
+  closeModal();setPulse('loading');
+  try {
+    const ok = await ensureFreshSession();
+    if(!ok){ toast('Phiên đăng nhập đã hết hạn, vui lòng đăng xuất rồi đăng nhập lại!','er'); setPulse(''); return; }
+    const { error } = await sb.from('system_announcement').delete().eq('id','current');
+    if(error) throw new Error(error.message);
+    S.announcement=null;
     toast('Đã xóa!');
   } catch(e){toast('Lỗi: '+e.message,'er');}
   setPulse('');render();

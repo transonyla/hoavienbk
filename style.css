@@ -480,3 +480,36 @@ code{background:var(--sage);padding:1px 6px;border-radius:5px;font-size:.82em;co
 #scroll-top-btn.visible{opacity:1;transform:none;pointer-events:auto;}
 #scroll-top-btn:hover{background:linear-gradient(180deg,rgba(168,72,122,1),rgba(122,59,94,1));border-color:rgba(245,207,120,.8);}
 #scroll-top-btn:active{transform:scale(.94);}
+
+/* ─── Banner thông báo hệ thống — nhỏ, nền mờ nhạt, không phải popup ─── */
+.ann-banner{
+  display:flex;align-items:center;gap:0;
+  padding:0 0 0 10px;
+  background:rgba(245,211,226,.45);
+  border-bottom:1px solid rgba(245,211,226,.7);
+  font-size:.74rem;color:var(--ink);
+  line-height:1.5;overflow:hidden;
+  height:32px;
+}
+.ann-icon{flex-shrink:0;font-size:.82rem;opacity:.85;padding:0 6px 0 0}
+.ann-marquee-wrap{
+  flex:1;min-width:0;overflow:hidden;
+  position:relative;height:100%;display:flex;align-items:center;
+}
+.ann-text{
+  display:inline-block;
+  white-space:nowrap;
+  animation:ann-scroll 18s linear infinite;
+  padding-right:60px;
+}
+@keyframes ann-scroll{
+  0%  {transform:translateX(100vw)}
+  100%{transform:translateX(-100%)}
+}
+.ann-close{
+  flex-shrink:0;cursor:pointer;opacity:.5;font-size:.78rem;
+  padding:0 10px;height:100%;display:flex;align-items:center;
+  transition:opacity .15s;background:rgba(245,211,226,.3);
+}
+.ann-close:hover{opacity:.9}
+
