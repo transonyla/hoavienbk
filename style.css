@@ -192,11 +192,12 @@ body::before{
 .zoom-bg{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:28px;pointer-events:none}
 .zoom-bg.on{pointer-events:auto}
 .zoom-card{
-  background:var(--white);border-radius:22px;box-shadow:var(--shd);overflow:hidden;
+  background:var(--white);border-radius:22px;box-shadow:var(--shd);overflow:visible;
   width:min(420px,100%);max-height:calc(100vh - 56px);display:flex;flex-direction:column;
   transform:scale(.4);opacity:0;
   cursor:zoom-out;position:relative;border:3px solid var(--gold2);will-change:transform,opacity;
 }
+.zoom-img{border-radius:19px 19px 0 0;overflow:hidden}
 .zoom-card::after{
   content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:3;
   background-image:
@@ -256,6 +257,30 @@ body::before{
 .grp-bar::before{content:'';position:absolute;left:50%;top:-7px;width:7px;height:7px;transform:translateX(-50%) rotate(45deg);background:var(--gold2);border-radius:1px}
 .grp h2{font-size:1rem;font-weight:800;color:var(--ink);font-family:'Noto Serif SC',serif;letter-spacing:.01em}
 .grp-cnt{font-size:.7rem;color:var(--mist);background:var(--sage);border:1px solid var(--bd);padding:2px 8px;border-radius:var(--rp);font-weight:600}
+/* ribbon ruy băng cho tiêu mục Đã / Chưa đánh dấu */
+.tsec-ribbon{
+  display:flex;align-items:center;gap:6px;flex:1;
+  padding:5px 18px 5px 14px;
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%);
+  position:relative;
+}
+.tsec-ribbon::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--gold1,#f0d878),var(--gold3,#b8892a));
+}
+.tsec-ribbon::after{
+  content:'';position:absolute;left:0;right:12px;top:0;height:1px;
+  background:rgba(255,255,255,.45);
+}
+.tsec-ribbon .tsec-title{color:#fff}
+.tsec-ribbon .tsec-cnt{background:rgba(255,255,255,.22);color:#fff}
+/* sparkle BXH */
+@keyframes twk{0%,100%{opacity:.2;transform:scale(.6) rotate(0deg)}50%{opacity:1;transform:scale(1.3) rotate(18deg)}}
+.rank-sp{position:absolute;animation:twk 2.4s ease-in-out infinite;pointer-events:none}
+/* hào quang nền BXH */
+.rank-halo{
+  background:radial-gradient(ellipse 85% 55% at 50% 40%, rgba(240,216,120,.2) 0%, transparent 70%), var(--white);
+}
 
 /* ─── TICK SECTION — khung cuộn giấy với "đầu cuộn" vàng kim ─────────────── */
 .tsec{border-radius:var(--r);border:2px solid var(--bd);background:var(--white);margin-bottom:14px;overflow:hidden;box-shadow:var(--sh);position:relative}

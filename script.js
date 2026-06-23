@@ -298,7 +298,8 @@ window.openFlowerZoom=function(fid){
       <div class="zoom-name" style="color:${cv.h}">${esc(f.name)}</div>
       <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
       <div class="zoom-owners">${ownershipTagsHtml(fid)}</div>
-    </div>`;
+    </div>
+    ${RB}`;
   card.querySelectorAll('img').forEach(img=>{ img.removeAttribute('loading'); img.setAttribute('decoding','async'); });
   document.getElementById('zoomBg').classList.add('on');
   void card.offsetHeight;
@@ -432,6 +433,9 @@ window.setTq=function(v){
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ─── RUY BĂNG trang trí — chỉ dùng cho zoom-card ────────────────────────────
+const RB=`<div class="ribbon-anchor"><img src="https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782207218380-1wiufzrp.png" alt="" aria-hidden="true" draggable="false"></div>`;
 
 // Sinh thẻ <img> cho ảnh hoa, có gắn data-cache-src để hệ thống cache ảnh (IndexedDB) tự nhận diện
 // và thay bằng bản đã lưu cache khi có, mà không cần sửa lại từng nơi gọi <img> thủ công.
@@ -1140,20 +1144,24 @@ function buildTickGrid(){
 
   return `
   <div class="tsec ${markedOpen?'':'closed'}" id="tsec-marked">
-    <div class="tsec-head tsec-head-hl" onclick="toggleTickSec('marked')">
-      <span class="tsec-ico">▾</span>
-      <span class="tsec-title">🌸 Đã đánh dấu</span>
-      <span class="tsec-cnt marked">${markedLabel}</span>
-      <span class="tsec-hint">chạm để đóng/mở</span>
+    <div class="tsec-head tsec-head-hl" onclick="toggleTickSec('marked')" style="padding:0;background:none;overflow:hidden">
+      <div class="tsec-ribbon" style="background:linear-gradient(90deg,#e91e8c,#c8547a);filter:drop-shadow(0 2px 5px rgba(200,84,122,.3));flex:1;min-width:0">
+        <span class="tsec-ico" style="color:#fff">▾</span>
+        <span class="tsec-title">🌸 Đã đánh dấu</span>
+        <span class="tsec-cnt marked">${markedLabel}</span>
+        <span class="tsec-hint" style="color:rgba(255,255,255,.6)">chạm để đóng/mở</span>
+      </div>
     </div>
     <div class="tsec-body" id="tsec-marked-body">${buildColorGroupsHtml(markedList)}</div>
   </div>
   <div class="tsec ${unmarkedOpen?'':'closed'}" id="tsec-unmarked">
-    <div class="tsec-head tsec-head-hl" onclick="toggleTickSec('unmarked')">
-      <span class="tsec-ico">▾</span>
-      <span class="tsec-title">⬜ Chưa đánh dấu</span>
-      <span class="tsec-cnt unmarked">${unmarkedLabel}</span>
-      <span class="tsec-hint">chạm để đóng/mở</span>
+    <div class="tsec-head tsec-head-hl" onclick="toggleTickSec('unmarked')" style="padding:0;background:none;overflow:hidden">
+      <div class="tsec-ribbon" style="background:linear-gradient(90deg,#5cc2ad,#3aa898);filter:drop-shadow(0 2px 5px rgba(92,194,173,.3));flex:1;min-width:0">
+        <span class="tsec-ico" style="color:#fff">▾</span>
+        <span class="tsec-title">⬜ Chưa đánh dấu</span>
+        <span class="tsec-cnt unmarked">${unmarkedLabel}</span>
+        <span class="tsec-hint" style="color:rgba(255,255,255,.6)">chạm để đóng/mở</span>
+      </div>
     </div>
     <div class="tsec-body" id="tsec-unmarked-body">${unmarkedList.length?buildColorGroupsHtml(unmarkedList):`<div class="empty" style="padding:18px 0"><div class="empty-icon">🌿</div>Không tìm thấy</div>`}</div>
   </div>`;
@@ -2761,9 +2769,23 @@ function pageRank(){
     </button>`;
   }).join('');
 
+  const sparkSvg=(s,delay)=>`<svg class="rank-sp" width="${s}" height="${s}" viewBox="0 0 12 12" style="animation-delay:${delay}s"><path d="M6,0 L7,5 L12,6 L7,7 L6,12 L5,7 L0,6 L5,5Z" fill="#e8c96a"/></svg>`;
   return `
-  <div class="card cn-frame">
-    <div class="card-title" style="justify-content:center">🏆 Bảng Xếp Hạng 🏆</div>
+  <div class="card cn-frame rank-halo">
+    <div style="position:relative;text-align:center;padding:10px 0 6px">
+      ${sparkSvg(11,0)}${sparkSvg(9,.8)}${sparkSvg(7,1.5)}${sparkSvg(8,.4)}
+      <svg style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:230px;height:50px;opacity:.13;pointer-events:none" viewBox="0 0 240 52" fill="none">
+        <defs><linearGradient id="sc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d4a843"/><stop offset=".5" stop-color="#f0d878"/><stop offset="1" stop-color="#d4a843"/></linearGradient></defs>
+        <path d="M22,6 Q120,1 218,6 Q234,6 234,26 Q234,46 218,46 Q120,51 22,46 Q6,46 6,26 Q6,6 22,6Z" fill="url(#sc)" stroke="#b8892a" stroke-width="1.5"/>
+        <ellipse cx="14" cy="26" rx="10" ry="22" fill="#c4900a" stroke="#b8892a" stroke-width="1"/>
+        <ellipse cx="226" cy="26" rx="10" ry="22" fill="#c4900a" stroke="#b8892a" stroke-width="1"/>
+        <ellipse cx="14" cy="26" rx="5" ry="18" fill="#d4a843" opacity=".5"/>
+        <ellipse cx="226" cy="26" rx="5" ry="18" fill="#d4a843" opacity=".5"/>
+        <line x1="24" y1="13" x2="216" y2="13" stroke="#b8892a" stroke-width=".8" opacity=".5"/>
+        <line x1="24" y1="39" x2="216" y2="39" stroke="#b8892a" stroke-width=".8" opacity=".5"/>
+      </svg>
+      <div class="card-title" style="justify-content:center;position:relative;z-index:1">🏆 Bảng Xếp Hạng 🏆</div>
+    </div>
     <div class="rank-tabs">${subTabs}</div>
     ${renderPodium(ranked.slice(0,3), cv.h)}
     ${renderRankList(ranked, cv.h)}
