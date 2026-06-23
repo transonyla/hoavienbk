@@ -2562,77 +2562,126 @@ function renderLastLoginTable(){
   display:flex;align-items:center;justify-content:center;gap:7px;
 }
 .rank-tab:hover{border-color:var(--leaf);color:var(--ink)}
-.rank-tab.on{color:#fff;border-color:transparent;
-  box-shadow:0 3px 12px rgba(0,0,0,.18)}
-.rank-dot{
-  width:13px;height:13px;border-radius:50%;flex-shrink:0;
-  box-shadow:0 1px 4px rgba(0,0,0,.2);
-}
+.rank-tab.on{color:#fff;border-color:transparent;box-shadow:0 3px 12px rgba(0,0,0,.18)}
+.rank-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 
-/* ── Podium ── */
-.podium{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
+/* ── Podium: top2 trái | top1 giữa cao nhất | top3 phải ── */
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin-bottom:28px;padding:8px 4px 0}
 
-/* Badge — bo tròn, KHÔNG có ::before vân mây */
-.rnk-badge{
-  position:relative;
-  display:inline-flex;align-items:center;justify-content:center;gap:7px;
-  padding:10px 24px;
-  border-radius:999px;
-  font-weight:800;font-size:.88rem;
-  font-family:'Noto Serif SC',serif;
-  letter-spacing:.02em;
-  cursor:pointer;
-  transition:transform .15s,box-shadow .15s;
-  white-space:nowrap;
-  /* Shine chỉ dùng ::after */
+.rnk-card{display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1);flex:1;max-width:128px;position:relative}
+.rnk-card:hover{transform:translateY(-6px)}
+.rnk-card:active{transform:translateY(-2px)}
+
+/* Hào quang tỏa sáng cho top 1 */
+.rnk-gold::before{
+  content:'✨';position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+  font-size:1.3rem;animation:crown-bounce 2s ease-in-out infinite;
+  filter:drop-shadow(0 0 6px #ffd700);z-index:5;
 }
-.rnk-badge:hover{transform:translateY(-2px);}
-.rnk-badge::after{
+@keyframes crown-bounce{0%,100%{transform:translateX(-50%) translateY(0) scale(1)}50%{transform:translateX(-50%) translateY(-5px) scale(1.12)}}
+
+/* Khung tên — nâng cấp */
+.rnk-face{
+  width:100%;border-radius:18px;padding:14px 10px 11px;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  position:relative;overflow:hidden;border:2.5px solid transparent;
+}
+/* shimmer sweep */
+.rnk-face::before{
   content:'';position:absolute;inset:0;border-radius:inherit;
-  background:linear-gradient(180deg,rgba(255,255,255,.5) 0%,rgba(255,255,255,.1) 45%,transparent 52%);
-  pointer-events:none;
+  background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);
+  background-size:200% 100%;
+  animation:shimmer 3.2s ease-in-out infinite;
+  pointer-events:none;z-index:2;
 }
-.rnk-icon{font-size:1rem;flex-shrink:0;position:relative;z-index:1}
-.rnk-name{position:relative;z-index:1}
+.rnk-face::after{
+  content:'';position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(180deg,rgba(255,255,255,.6) 0%,rgba(255,255,255,.1) 40%,transparent 60%);
+  pointer-events:none;z-index:1;
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
-/* VÀNG */
-.rnk-gold{
-  background:linear-gradient(135deg,#fff9d0 0%,#ffe566 35%,#ffd700 60%,#ffecaa 100%);
-  border:2px solid #e6c200;color:#7a5800;
-  box-shadow:0 0 0 1px rgba(255,220,0,.4),0 5px 18px rgba(184,134,11,.35),
-    inset 0 1px 0 rgba(255,255,255,.8),inset 0 -1px 0 rgba(184,134,11,.3);
+.rnk-name{font-size:.8rem;font-weight:800;text-align:center;line-height:1.3;font-family:'Noto Serif SC',serif;word-break:break-word;position:relative;z-index:3}
+.rnk-cnt{font-size:.7rem;font-weight:800;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.15);position:relative;z-index:3;backdrop-filter:blur(2px)}
+
+/* Bục vinh quang — 3D depth */
+.rnk-plinth{
+  width:100%;border-radius:10px 10px 5px 5px;
+  display:flex;align-items:center;justify-content:center;
+  border-top:3px solid rgba(255,255,255,.6);
+  font-size:1.15rem;font-weight:900;
+  font-family:'Noto Serif SC',serif;
+  position:relative;
 }
-/* BẠC */
-.rnk-silver{
-  background:linear-gradient(135deg,#f4f4f4 0%,#dcdcdc 35%,#c0c0c0 60%,#e8e8e8 100%);
-  border:2px solid #a8a8a8;color:#3a3a3a;
-  box-shadow:0 0 0 1px rgba(200,200,200,.5),0 5px 16px rgba(100,100,100,.28),
-    inset 0 1px 0 rgba(255,255,255,.9),inset 0 -1px 0 rgba(100,100,100,.18);
+/* Cạnh bên 3D cho bục */
+.rnk-plinth::after{
+  content:'';position:absolute;bottom:-5px;left:4px;right:4px;height:5px;
+  border-radius:0 0 5px 5px;
+  filter:brightness(.6);
 }
-/* ĐỒNG */
-.rnk-bronze{
-  background:linear-gradient(135deg,#fdf0e4 0%,#e8a96a 35%,#cd7f32 60%,#f0c080 100%);
-  border:2px solid #c07830;color:#5a2800;
-  box-shadow:0 0 0 1px rgba(205,127,50,.35),0 5px 16px rgba(139,69,19,.28),
-    inset 0 1px 0 rgba(255,255,255,.7),inset 0 -1px 0 rgba(139,69,19,.22);
+.rnk-gold .rnk-plinth::after{background:#a87200}
+.rnk-silver .rnk-plinth::after{background:#666}
+.rnk-bronze .rnk-plinth::after{background:#6b3510}
+
+/* VÀNG — top 1, bục cao 72px, glow rực rỡ */
+.rnk-gold .rnk-face{
+  background:linear-gradient(145deg,#fffde0,#ffe97a 35%,#ffc200 65%,#ffe799);
+  border-color:#f0cc00;color:#5a3a00;
+  box-shadow:
+    0 0 0 3px rgba(255,220,0,.25),
+    0 8px 28px rgba(200,150,0,.6),
+    inset 0 1px 0 rgba(255,255,255,.9);
+}
+.rnk-gold .rnk-plinth{
+  background:linear-gradient(180deg,#ffe566 0%,#f0a500 50%,#b87800 100%);
+  color:#fff8d0;height:72px;
+  box-shadow:0 8px 22px rgba(180,130,0,.6),inset 0 2px 0 rgba(255,255,255,.4);
+  text-shadow:0 1px 5px rgba(0,0,0,.5),0 0 16px rgba(255,230,60,1);
+}
+
+/* BẠC — top 2, bục cao 50px */
+.rnk-silver .rnk-face{
+  background:linear-gradient(145deg,#ffffff,#ebebeb 35%,#c8c8c8 65%,#eaeaea);
+  border-color:#b0b0b0;color:#222;
+  box-shadow:
+    0 0 0 3px rgba(180,180,180,.2),
+    0 6px 20px rgba(100,100,100,.42),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+.rnk-silver .rnk-plinth{
+  background:linear-gradient(180deg,#e8e8e8 0%,#a0a0a0 50%,#707070 100%);
+  color:#fff;height:50px;
+  box-shadow:0 6px 15px rgba(100,100,100,.5),inset 0 2px 0 rgba(255,255,255,.45);
+  text-shadow:0 1px 4px rgba(0,0,0,.55);
+}
+
+/* ĐỒNG — top 3, bục cao 34px */
+.rnk-bronze .rnk-face{
+  background:linear-gradient(145deg,#fff3e6,#f0b470 35%,#c06818 65%,#f0c880);
+  border-color:#c87828;color:#3a1000;
+  box-shadow:
+    0 0 0 3px rgba(200,120,40,.18),
+    0 5px 18px rgba(140,70,15,.42),
+    inset 0 1px 0 rgba(255,255,255,.75);
+}
+.rnk-bronze .rnk-plinth{
+  background:linear-gradient(180deg,#eda060 0%,#c06020 50%,#7a3010 100%);
+  color:#fff0e0;height:34px;
+  box-shadow:0 5px 13px rgba(140,70,15,.5),inset 0 2px 0 rgba(255,255,255,.3);
+  text-shadow:0 1px 4px rgba(0,0,0,.5);
 }
 
 /* ── Hàng top 4-10 ── */
 .rank-list{display:flex;flex-direction:column;gap:6px}
 .rank-row{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 13px;border-radius:12px;
+  display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:12px;
   background:var(--white);border:1.5px solid var(--bd);
-  box-shadow:0 1px 4px rgba(168,72,122,.07);
-  transition:background .12s;cursor:pointer;
+  box-shadow:0 1px 4px rgba(168,72,122,.07);transition:background .12s;cursor:pointer;
 }
-.rank-row:hover{background:var(--sage);}
+.rank-row:hover{background:var(--sage)}
 .rank-num{font-size:.8rem;font-weight:800;color:var(--mist);width:22px;text-align:center;flex-shrink:0}
 .rank-name-link{flex:1;font-size:.84rem;font-weight:700;color:var(--ink)}
-.rank-count{
-  font-size:.74rem;font-weight:700;padding:2px 9px;border-radius:var(--rp);
-  background:var(--sage);border:1px solid var(--bd);color:var(--mist);flex-shrink:0;
-}
+.rank-count{font-size:.74rem;font-weight:700;padding:2px 9px;border-radius:var(--rp);background:var(--sage);border:1px solid var(--bd);color:var(--mist);flex-shrink:0}
 `;
   document.head.appendChild(s);
 })();
@@ -2649,28 +2698,33 @@ function calcRankByColor(colorKey){
     const cnt=(S.ticks[l.id]||[]).filter(fid=>{const f=flowerById.get(fid);return f&&f.color===colorKey;}).length;
     if(cnt>0) all.push({id:l.id,name:l.displayName,role:'leader',cnt});
   });
-  all.sort((a,b)=>b.cnt-a.cnt);
+  all.sort((a,b)=>
+    b.cnt-a.cnt ||
+    (S.ticks[b.id]||[]).length-(S.ticks[a.id]||[]).length ||
+    a.id.localeCompare(b.id)
+  );
   return all.slice(0,10);
 }
 
 function renderPodium(top3, colorHex){
   if(!top3.length) return `<div class="empty" style="padding:24px 0"><div class="empty-icon">📊</div>Chưa có dữ liệu</div>`;
-  // Width chuẩn theo tên dài nhất
-  const maxLen = top3.reduce((a,u)=>Math.max(a,u.name.length),0);
-  const minW = `calc(${Math.max(maxLen,6)}ch + 72px)`;
-  const medals=['🥇','🥈','🥉'];
   const cls=['rnk-gold','rnk-silver','rnk-bronze'];
-  const badges=top3.map((u,i)=>`
-    <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
-      <div class="rnk-badge ${cls[i]}" style="min-width:${minW}"
-           onclick="openMemberFlowers('${esc(u.id)}','${u.role}')">
-        <span class="rnk-icon">${medals[i]}</span>
-        <span class="rnk-name">${esc(u.name)}</span>
-        <span class="rnk-icon">${medals[i]}</span>
+  const nums=['①','②','③'];
+  const medals=['🥇','🥈','🥉'];
+  // Thứ tự: [1]=trái, [0]=giữa cao nhất, [2]=phải
+  const order=[1,0,2];
+  const cards=order.map(i=>{
+    const u=top3[i];
+    if(!u) return '<div style="flex:1;max-width:128px"></div>';
+    return `<div class="rnk-card ${cls[i]}" onclick="openMemberFlowers('${esc(u.id)}','${u.role}')">
+      <div class="rnk-face">
+        <div class="rnk-name">${esc(u.name)}</div>
+        <div class="rnk-cnt">🌸 ${u.cnt}</div>
       </div>
-      <div style="font-size:.66rem;color:var(--mist)">🌸 ${u.cnt} hoa</div>
-    </div>`).join('');
-  return `<div class="podium">${badges}</div>`;
+      <div class="rnk-plinth">${medals[i]}</div>
+    </div>`;
+  }).join('');
+  return `<div class="podium">${cards}</div>`;
 }
 
 function renderRankList(ranked, colorHex){
