@@ -435,7 +435,8 @@ window.setTq=function(v){
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ─── RUY BĂNG trang trí — chỉ dùng cho zoom-card ────────────────────────────
-const RB=`<div class="ribbon-anchor"><img src="https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782207218380-1wiufzrp.png" alt="" aria-hidden="true" draggable="false"></div>`;
+const RB_URL='https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782207218380-1wiufzrp.png';
+const RB=`<div class="ribbon-anchor"><img src="${RB_URL}" data-cache-src="${RB_URL}" alt="" aria-hidden="true" draggable="false"></div>`;
 
 // Sinh thẻ <img> cho ảnh hoa, có gắn data-cache-src để hệ thống cache ảnh (IndexedDB) tự nhận diện
 // và thay bằng bản đã lưu cache khi có, mà không cần sửa lại từng nơi gọi <img> thủ công.
@@ -730,6 +731,12 @@ window.openGuide=function(){
 };
 
 function renderNav(){
+  const TAB_IMG={
+    flowers:'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782219549043-fkq1yzq5.webp',
+    tick:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782220653457-hj4dzq0w.webp',
+    members:'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782219582078-frxffe0i.webp',
+    rank:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782219609683-327m780r.webp',
+  };
   const tabs=[];
   if(isAdmin()||isLeader()||isMember()) tabs.push({k:'flowers',l:'🌸 Hoa'});
   if(isMember()||isLeader()) tabs.push({k:'tick',l:'✅ Đánh dấu'});
@@ -737,7 +744,14 @@ function renderNav(){
   if(isAdmin()||isLeader()||isMember()) tabs.push({k:'rank',   l:'🏆 Xếp hạng'});
   if(isAdmin()||isLeader()) tabs.push({k:'manage',l:'⚙️ Quản lý'});
   if(isAdmin()) tabs.push({k:'settings',l:'🔧 Cài đặt'});
-  return `<div class="nav nav-main">${tabs.map(t=>`<button class="nvb ${S.page===t.k?'on':''}" onclick="goto('${t.k}')">${t.l}</button>`).join('')}</div>`;
+  return `<div class="nav nav-main">${tabs.map(t=>{
+    const on=S.page===t.k?'on':'';
+    const imgUrl=TAB_IMG[t.k];
+    const inner=imgUrl
+      ?`<img class="nvb-img" src="${imgUrl}" data-cache-src="${imgUrl}" alt="${t.l}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="nvb-txt" style="display:none">${t.l}</span>`
+      :t.l;
+    return `<button class="nvb ${t.k in TAB_IMG?'nvb-has-img':''} ${on}" data-tab="${t.k}" onclick="goto('${t.k}')">${inner}</button>`;
+  }).join('')}</div>`;
 }
 window.goto=function(p){
   if(S.page==='tick' && p!=='tick'){

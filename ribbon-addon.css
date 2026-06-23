@@ -24,6 +24,13 @@
   user-select: none;
 }
 
+/* Tab Hội Viên — thu nhỏ + kéo xuống để cân bằng với các tab khác
+   Ảnh gốc có nhân vật cao hơn ~18% so với Hoa Tươi / Chọn Hoa */
+[data-tab="members"] .nvb-img {
+  transform: translateY(5px) scale(1.1);
+  transform-origin: center bottom;
+}
+
 /* Chỉ dùng ruy băng trên zoom-card */
 .zoom-card .ribbon-anchor {
   width: clamp(200px, 72%, 320px);
