@@ -31,6 +31,16 @@
   transform-origin: center bottom;
 }
 
+[data-tab="flowers"] .nvb-img {
+  transform: translateY(4.4px) scale(1.05);
+  transform-origin: center bottom;
+}
+
+[data-tab="rank"] .nvb-img {
+  transform: translateY(-0.5px) scale(1.02);
+  transform-origin: center bottom;
+}
+
 /* Chỉ dùng ruy băng trên zoom-card */
 .zoom-card .ribbon-anchor {
   width: clamp(200px, 72%, 320px);
