@@ -609,7 +609,7 @@ function render(){
   if(!S.loaded){app.innerHTML='<div class="loading"><div class="sp"></div> Đang tải...</div>';return;}
   if(S.err){app.innerHTML=renderErr();return;}
   if(!S.session){app.innerHTML=renderLogin();return;}
-  app.innerHTML=renderNav()+renderPage();
+  app.innerHTML=renderNav()+`<div class="page-fade">${renderPage()}</div>`;
   const sb2=document.getElementById('savebar');
   if(S.page==='tick'&&(isMember()||isLeader())){
     sb2.classList.add('on');
@@ -788,17 +788,28 @@ function renderNav(){
   </div>`;
 }
 window.goto=function(p){
-  if(S.page==='tick' && p!=='tick'){
-    S.tcolor='all'; S.tq='';
-    S._lastTickSubject=null; // force msel reload khi quay lại tick page
+  if(S.page===p) return;
+  const pageEl=document.querySelector('.page-fade');
+  const doSwitch=()=>{
+    if(S.page==='tick' && p!=='tick'){
+      S.tcolor='all'; S.tq='';
+      S._lastTickSubject=null;
+    }
+    if(S.page==='flowers' && p!=='flowers'){
+      S.fcolor='all'; S.fq='';
+    }
+    S.page=p;
+    render();
+    requestAnimationFrame(warmUpGPULayers);
+  };
+  if(pageEl){
+    pageEl.style.transition='opacity .12s ease, transform .12s ease';
+    pageEl.style.opacity='0';
+    pageEl.style.transform='translateY(5px)';
+    setTimeout(doSwitch, 120);
+  } else {
+    doSwitch();
   }
-  if(S.page==='flowers' && p!=='flowers'){
-    S.fcolor='all'; S.fq=''; // reset bộ lọc màu khi rời tab Hoa
-  }
-  S.page=p;
-  render();
-  // Warm-up lại GPU layer sau mỗi lần chuyển tab
-  requestAnimationFrame(warmUpGPULayers);
 };
 
 function renderPage(){
