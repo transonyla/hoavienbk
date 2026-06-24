@@ -41,6 +41,12 @@
   transform-origin: center bottom;
 }
 
+/* Tab Quản Lý — chỉnh scale và vị trí dọc nếu ảnh lệch so với các tab khác */
+[data-tab="manage"] .nvb-img {
+  transform: translateY(0px) scale(1.0);
+  transform-origin: center bottom;
+}
+
 /* Chỉ dùng ruy băng trên zoom-card */
 .zoom-card .ribbon-anchor {
   width: clamp(200px, 72%, 320px);

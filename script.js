@@ -736,6 +736,7 @@ function renderNav(){
     tick:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782220653457-hj4dzq0w.webp',
     members:'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782219582078-frxffe0i.webp',
     rank:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782219609683-327m780r.webp',
+    manage: 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782258543826-rjw4f7si.webp',
   };
   const tabs=[];
   if(isAdmin()||isLeader()||isMember()) tabs.push({k:'flowers',l:'🌸 Hoa'});
