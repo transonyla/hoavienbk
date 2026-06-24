@@ -630,6 +630,34 @@ function render(){
   const mmEl=document.getElementById('mm-result');
   if(mmEl) mmEl.innerHTML=buildMmResult();
   activateImageCache();
+  initNavScroll();
+}
+
+function initNavScroll(){
+  const nav=document.getElementById('navMain');
+  const arL=document.getElementById('navArrowLeft');
+  const arR=document.getElementById('navArrowRight');
+  if(!nav||!arL||!arR) return;
+  const isMobile=window.matchMedia('(max-width:600px)').matches;
+  if(!isMobile){ arL.style.display='none'; arR.style.display='none'; return; }
+  function updateArrows(){
+    const atStart=nav.scrollLeft<=4;
+    const atEnd=nav.scrollLeft>=nav.scrollWidth-nav.clientWidth-4;
+    arL.classList.toggle('nav-arrow-visible',!atStart);
+    arR.classList.toggle('nav-arrow-visible',!atEnd);
+    if(!atStart) arR.classList.remove('nav-arrow-hint');
+  }
+  if(nav._scrollHandler) nav.removeEventListener('scroll',nav._scrollHandler);
+  nav._scrollHandler=updateArrows;
+  nav.addEventListener('scroll',updateArrows,{passive:true});
+  // Scroll nút active vào giữa tầm nhìn
+  const activeBtn=nav.querySelector('.nvb.on');
+  if(activeBtn){
+    const scrollTo=activeBtn.offsetLeft-(nav.clientWidth/2)+(activeBtn.offsetWidth/2);
+    nav.scrollLeft=Math.max(0,scrollTo);
+  }
+  arR.classList.toggle('nav-arrow-hint', nav.scrollLeft<=4);
+  updateArrows();
 }
 
 function renderBarUser(){
@@ -745,14 +773,19 @@ function renderNav(){
   if(isAdmin()||isLeader()||isMember()) tabs.push({k:'rank',   l:'🏆 Xếp hạng'});
   if(isAdmin()||isLeader()) tabs.push({k:'manage',l:'⚙️ Quản lý'});
   if(isAdmin()) tabs.push({k:'settings',l:'🔧 Cài đặt'});
-  return `<div class="nav nav-main">${tabs.map(t=>{
+  const navInner=tabs.map(t=>{
     const on=S.page===t.k?'on':'';
     const imgUrl=TAB_IMG[t.k];
     const inner=imgUrl
       ?`<img class="nvb-img" src="${imgUrl}" data-cache-src="${imgUrl}" alt="${t.l}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="nvb-txt" style="display:none">${t.l}</span>`
       :t.l;
     return `<button class="nvb ${t.k in TAB_IMG?'nvb-has-img':''} ${on}" data-tab="${t.k}" onclick="goto('${t.k}')">${inner}</button>`;
-  }).join('')}</div>`;
+  }).join('');
+  return `<div class="nav-scroll-wrap">
+    <div class="nav-arrow nav-arrow-left" id="navArrowLeft">&#10094;</div>
+    <div class="nav nav-main" id="navMain">${navInner}</div>
+    <div class="nav-arrow nav-arrow-right" id="navArrowRight">&#10095;</div>
+  </div>`;
 }
 window.goto=function(p){
   if(S.page==='tick' && p!=='tick'){
