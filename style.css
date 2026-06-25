@@ -593,3 +593,7 @@ code{background:var(--sage);padding:1px 6px;border-radius:5px;font-size:.82em;co
   from{opacity:0;transform:translateY(6px)}
   to{opacity:1;transform:translateY(0)}
 }
+.ann-close{
+  align-self:stretch;
+  margin-left:auto;
+}
