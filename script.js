@@ -20,7 +20,6 @@ async function checkHyperPaused(res, json){
     toast('Hội của bạn đã bị tạm dừng bởi Admin.','er');
     await sb.auth.signOut();
     clearSession();
-    S.loaded=false;
     render();
     return true; // đã xử lý
   }
@@ -567,7 +566,7 @@ async function loadAll(force=false){
         clearSession();
         S.loaded=false;
         toast('Hội của bạn đã bị tạm dừng bởi Admin.','er');
-        render();
+        clearSession(); render();
         return;
       }
     }
@@ -1362,6 +1361,14 @@ window.saveTicks=async function(){
     const existing=S.ticks[memberId]||[];
     const same=existing.length===saved.length && saved.every(id=>existing.includes(id));
     if(same){toast('Không có thay đổi nào 🌿','wn');btn.disabled=false;btn.innerHTML='💾 Lưu';setPulse('');return;}
+    // Check clan paused trước khi lưu
+    if(myClanId()){
+      const {data:pauseCheck}=await sb.from('clans').select('paused').eq('id',myClanId()).single();
+      if(pauseCheck?.paused){
+        toast('Hội của bạn đã bị tạm dừng bởi Admin.','er');
+        await sb.auth.signOut(); clearSession(); render(); return;
+      }
+    }
     await fsSet('ticks',memberId,{flowerIds:saved,updatedAt:new Date().toISOString()});
     S.ticks[memberId]=saved;
     S.msel=new Set(saved);
@@ -1385,7 +1392,6 @@ window.saveTicks=async function(){
         toast('Hội của bạn đã bị tạm dừng bởi Admin.','er');
         await sb.auth.signOut();
         clearSession();
-        S.loaded=false;
         render();
         return;
       }
@@ -2125,6 +2131,14 @@ window.doAddMember=async function(){
   setPulse('loading');
   try {
     const leaderId = isLeader() ? S.session.id : '';
+    // Check clan paused trước khi insert vào DB
+    if(isLeader() && myClanId()){
+      const {data:pauseCheck}=await sb.from('clans').select('paused').eq('id',myClanId()).single();
+      if(pauseCheck?.paused){
+        toast('Hội của bạn đang tạm dừng bởi Admin.','er');
+        await sb.auth.signOut(); clearSession(); render(); return;
+      }
+    }
     const newId='mb'+Date.now();
     await fsSet('members',newId,{username:u,password:p,displayName:d,alias:a,year:y,clanId:cl,leaderId});
     // Tạo Auth user song song qua Edge Function (cần JWT hiện tại của admin/leader)
