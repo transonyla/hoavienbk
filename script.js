@@ -1377,7 +1377,21 @@ window.saveTicks=async function(){
     } else {
       toast('Đã lưu 🌸');
     }
-  } catch(e){ toast('Lỗi lưu: '+e.message,'er'); }
+  } catch(e){
+    // Check thẳng từ Supabase xem clan có bị paused không → force logout
+    if(myClanId()){
+      const {data:clanData}=await sb.from('clans').select('paused').eq('id',myClanId()).single();
+      if(clanData?.paused){
+        toast('Hội của bạn đã bị tạm dừng bởi Admin.','er');
+        await sb.auth.signOut();
+        clearSession();
+        S.loaded=false;
+        render();
+        return;
+      }
+    }
+    toast('Lỗi lưu: '+e.message,'er');
+  }
   setPulse('');
   btn.disabled=false;btn.innerHTML='💾 Lưu';
 };
