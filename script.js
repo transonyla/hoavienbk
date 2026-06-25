@@ -935,7 +935,7 @@ window.doLoginLeader=async function(){
     const id = await findLoginId(u, 'leader');
     if(!id){ toast('Sai tên đăng nhập hoặc mật khẩu!','er'); if(btn){btn.disabled=false;btn.innerHTML='🏆 Đăng nhập Hội trưởng';} return; }
     const safePw = p.length>=6 ? p : p.padEnd(6,'0');
-    const { error } = await sb.auth.signInWithPassword({ email: `${id}@app.local`, password: safePw });
+    const { data: signInData, error } = await sb.auth.signInWithPassword({ email: `${id}@app.local`, password: safePw });
     if(error){ toast('Sai tên đăng nhập hoặc mật khẩu!','er'); if(btn){btn.disabled=false;btn.innerHTML='🏆 Đăng nhập Hội trưởng';} return; }
     // Đăng nhập thành công, tải dữ liệu để lấy thông tin đầy đủ của leader
     saveSession({role:'leader',id:id,clanId:'',displayName:u});
@@ -950,7 +950,7 @@ window.doLoginLeader=async function(){
     S.msel=new Set(S.ticks[id]||[]);
     S.page='flowers';toast('Chào '+(l?.displayName||u)+' 🏆');
     // Ghi lần đăng nhập cuối cho leader, rồi tải lại để admin thấy ngay nếu đang xem Settings
-    await writeLastLogin(id, u, l?.displayName||u, 'leader');
+    await writeLastLogin(id, u, l?.displayName||u, 'leader', signInData?.session?.access_token);
     await loadAll(true);
     render();
     window.scrollTo({top:0});
@@ -969,7 +969,7 @@ window.doLoginMember=async function(){
     const id = await findLoginId(u, 'member');
     if(!id){ toast('Sai tên đăng nhập hoặc mật khẩu!','er'); if(btn){btn.disabled=false;btn.innerHTML='🌸 Đăng nhập Thành viên';} return; }
     const safePw = p.length>=6 ? p : p.padEnd(6,'0');
-    const { error } = await sb.auth.signInWithPassword({ email: `${id}@app.local`, password: safePw });
+    const { data: signInData, error } = await sb.auth.signInWithPassword({ email: `${id}@app.local`, password: safePw });
     if(error){ toast('Lỗi Auth: '+error.message+' | email='+id+'@app.local','er'); if(btn){btn.disabled=false;btn.innerHTML='🌸 Đăng nhập Thành viên';} return; }
     saveSession({role:'member',id:id,clanId:'',displayName:u});
     await loadAll(true);
@@ -983,7 +983,7 @@ window.doLoginMember=async function(){
     S.msel=new Set(S.ticks[id]||[]);
     S.page='tick';toast('Chào '+(m?.displayName||u)+' 🌸');
     // Ghi lần đăng nhập cuối cho member, rồi tải lại để admin thấy ngay nếu đang xem Settings
-    await writeLastLogin(id, u, m?.displayName||u, 'member');
+    await writeLastLogin(id, u, m?.displayName||u, 'member', signInData?.session?.access_token);
     await loadAll(true);
     render();
     window.scrollTo({top:0});
@@ -1695,7 +1695,7 @@ window.doDelLeader=async function(id){
       const delRes = await fetch(CREATE_USER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
-        body: JSON.stringify({ action: 'delete', refId: id })
+        body: JSON.stringify({ action: 'deleteUser', refId: id })
       });
       const delResult = await delRes.json();
       if(await checkHyperPaused(delRes, delResult)) return;
@@ -2183,7 +2183,7 @@ window.doDelMember=async function(id){
       const delRes = await fetch(CREATE_USER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
-        body: JSON.stringify({ action: 'delete', refId: id })
+        body: JSON.stringify({ action: 'deleteUser', refId: id })
       });
       const delResult = await delRes.json();
       if(await checkHyperPaused(delRes, delResult)) return;
@@ -2652,13 +2652,15 @@ window.doDelAnnouncement=async function(){
 
 // ─── LAST LOGIN WRITER — dùng REST trực tiếp, bypass RLS session ─────────────
 // Supabase REST upsert với header Prefer: resolution=merge-duplicates
-async function writeLastLogin(userId, username, displayName, role){
+async function writeLastLogin(userId, username, displayName, role, accessToken){
   try {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = accessToken || session?.access_token || SUPABASE_ANON_KEY;
     const r = await fetch(`${SUPABASE_URL}/rest/v1/user_last_login`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/json',
         'Prefer': 'resolution=merge-duplicates,return=minimal',
       },
