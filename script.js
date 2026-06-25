@@ -14,6 +14,19 @@ const UPLOAD_IMAGE_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/
 const ADMIN_LOGIN_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/admin-login';
 const CREATE_USER_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/hyper-service';
 
+// Helper: check response từ hyper-service, nếu CLAN_PAUSED thì force logout
+async function checkHyperPaused(res, json){
+  if(res.status===403 && json?.error==='CLAN_PAUSED'){
+    toast('Hội của bạn đã bị tạm dừng bởi Admin.','er');
+    await sb.auth.signOut();
+    clearSession();
+    S.loaded=false;
+    render();
+    return true; // đã xử lý
+  }
+  return false;
+}
+
 // ─── IMAGE CACHE (IndexedDB, lưu lâu dài, độc lập với cache 5 phút của dữ liệu Supabase ở trên) ──
 // Mục đích: ảnh hoa load từ Github/jsdelivr, đôi lúc link tạm thời không load được dù ảnh vẫn còn,
 // nên cache lại ảnh (dạng base64, ảnh <100kb) vào IndexedDB của trình duyệt, dùng lại được
@@ -1626,6 +1639,7 @@ window.doAddLeader=async function(){
       body: JSON.stringify({ username: un, password: pw, role: 'leader', refId: newId })
     });
     const authResult = await res.json();
+    if(await checkHyperPaused(res, authResult)) return;
     if(!res.ok || !authResult.success){
       await fsDel('leaders', newId);
       toast('Lỗi tạo tài khoản đăng nhập: '+(authResult.error||'không rõ'),'er');
@@ -1664,6 +1678,7 @@ window.doDelLeader=async function(id){
         body: JSON.stringify({ action: 'delete', refId: id })
       });
       const delResult = await delRes.json();
+      if(await checkHyperPaused(delRes, delResult)) return;
       if(!delRes.ok || !delResult.success){
         toast('⚠️ Xóa Auth thất bại: '+(delResult.error||'lỗi không rõ'),'er');
       }
@@ -2107,6 +2122,7 @@ window.doAddMember=async function(){
       body: JSON.stringify({ username: u, password: p, role: 'member', refId: newId })
     });
     const authResult = await res.json();
+    if(await checkHyperPaused(res, authResult)) return;
     if(!res.ok || !authResult.success){
       // Rollback: xóa row members vừa tạo nếu tạo Auth thất bại, tránh tài khoản "mồ côi"
       await fsDel('members', newId);
@@ -2142,6 +2158,7 @@ window.doDelMember=async function(id){
         body: JSON.stringify({ action: 'delete', refId: id })
       });
       const delResult = await delRes.json();
+      if(await checkHyperPaused(delRes, delResult)) return;
       if(!delRes.ok || !delResult.success){
         toast('⚠️ Xóa Auth thất bại: '+(delResult.error||'lỗi không rõ'),'er');
       }
