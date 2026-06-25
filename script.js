@@ -545,7 +545,19 @@ async function loadAll(force=false){
       imgUrl:r.img_url||'', sortOrder:Number(r.sort_order)||0,
       label:r.label||'',
     })).sort((a,b)=>a.sortOrder-b.sortOrder);
-    S.clans=cl.filter(r=>r.name).map(r=>({id:r.id,name:r.name}));
+    S.clans=cl.filter(r=>r.name).map(r=>({id:r.id,name:r.name,paused:r.paused||false}));
+    // Đá user ra nếu clan bị pause (áp dụng cho mọi lần loadAll kể cả đang online)
+    if((isLeader()||isMember()) && myClanId()){
+      const myClan=S.clans.find(c=>c.id===myClanId());
+      if(myClan?.paused){
+        await sb.auth.signOut();
+        clearSession();
+        S.loaded=false;
+        toast('Hội của bạn đã bị tạm dừng bởi Admin.','er');
+        render();
+        return;
+      }
+    }
     S.leaders=ld.filter(r=>r.username).map(r=>({
       id:r.id, username:r.username, password:r.password||'',
       clanId:r.clan_id||'', displayName:r.display_name||r.username,
@@ -918,6 +930,11 @@ window.doLoginLeader=async function(){
     await loadAll(true);
     const l=S.leaders.find(x=>x.id===id);
     if(l){ S.session.clanId=l.clanId; S.session.displayName=l.displayName; saveSession(S.session); }
+    // Check clan paused
+    if(S.session.clanId){
+      const {data:clanData}=await sb.from('clans').select('paused').eq('id',S.session.clanId).single();
+      if(clanData?.paused){ clearSession(); toast('Hội của bạn đang tạm dừng. Vui lòng liên hệ Admin.','er'); setPulse(''); render(); return; }
+    }
     S.msel=new Set(S.ticks[id]||[]);
     S.page='flowers';toast('Chào '+(l?.displayName||u)+' 🏆');
     // Ghi lần đăng nhập cuối cho leader, rồi tải lại để admin thấy ngay nếu đang xem Settings
@@ -946,6 +963,11 @@ window.doLoginMember=async function(){
     await loadAll(true);
     const m=S.members.find(x=>x.id===id);
     if(m){ S.session.clanId=m.clanId; S.session.displayName=m.displayName; saveSession(S.session); }
+    // Check clan paused
+    if(S.session.clanId){
+      const {data:clanData}=await sb.from('clans').select('paused').eq('id',S.session.clanId).single();
+      if(clanData?.paused){ clearSession(); toast('Hội của bạn đang tạm dừng. Vui lòng liên hệ Admin.','er'); setPulse(''); render(); return; }
+    }
     S.msel=new Set(S.ticks[id]||[]);
     S.page='tick';toast('Chào '+(m?.displayName||u)+' 🌸');
     // Ghi lần đăng nhập cuối cho member, rồi tải lại để admin thấy ngay nếu đang xem Settings
@@ -1451,10 +1473,13 @@ function manageLeaderSection(){
 // ── CLANS (ADMIN) ─────────────────────────────────────────────────────────────
 function manageClans(){
   const rows=S.clans.map(c=>`<tr>
-    <td><strong>${esc(c.name)}</strong></td>
+    <td><strong>${esc(c.name)}</strong>${c.paused?'<span style="font-size:.7rem;color:#e65100;margin-left:4px">⏸ Tạm dừng</span>':''}</td>
     <td style="font-size:.78rem;color:var(--mist)">${S.leaders.filter(l=>l.clanId===c.id).map(l=>esc(l.displayName)).join(', ')||'—'}</td>
     <td style="font-size:.78rem;color:var(--mist)">${S.members.filter(m=>m.clanId===c.id).length+S.leaders.filter(l=>l.clanId===c.id).length} thành viên</td>
-    <td><button class="ibtn del" onclick="confirmDelClan('${c.id}')">🗑️</button></td>
+    <td style="display:flex;gap:4px">
+      <button class="ibtn" style="font-size:.8rem;padding:2px 6px;background:${c.paused?'#e8f5e9':'#fff3e0'};border:1px solid ${c.paused?'#66bb6a':'#ffa726'};border-radius:6px" onclick="togglePauseClan('${c.id}',${c.paused})">${c.paused?'▶ Mở':'⏸ Dừng'}</button>
+      <button class="ibtn del" onclick="confirmDelClan('${c.id}')">🗑️</button>
+    </td>
   </tr>`).join('');
   return `<div class="card" style="margin-bottom:14px">
     <div class="card-title">🏅 Quản lý Hội (Clan) <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${S.clans.length})</span>
@@ -1518,6 +1543,32 @@ window.doDelClan=async function(id){
     affectedMembers.forEach(m=>{m.clanId='';m.leaderId='';});
     toast('Đã xóa Hội');
   } catch(e){toast('Lỗi: '+e.message,'er');}
+  setPulse('');
+  render();
+};
+
+window.togglePauseClan=async function(id, currentPaused){
+  const c=S.clans.find(x=>x.id===id);
+  if(!c) return;
+  const newPaused=!currentPaused;
+  openModal(
+    newPaused?'⏸ Tạm dừng Hội':'▶ Mở lại Hội',
+    newPaused
+      ?`Tạm dừng Hội <b>${esc(c.name)}</b>?<br><span style="font-size:.82rem;color:#e65100">⚠️ Tất cả thành viên và hội trưởng sẽ bị đăng xuất ngay và không thể đăng nhập lại cho đến khi mở.</span>`
+      :`Mở lại Hội <b>${esc(c.name)}</b>? Thành viên sẽ đăng nhập được trở lại.`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button>
+     <button class="btn ${newPaused?'btn-r':'btn-v'}" onclick="doPauseClan('${id}',${newPaused})">${newPaused?'⏸ Tạm dừng':'▶ Mở lại'}</button>`
+  );
+};
+window.doPauseClan=async function(id, newPaused){
+  closeModal(); setPulse('loading');
+  try {
+    const {error}=await sb.from('clans').update({paused:newPaused}).eq('id',id);
+    if(error) throw error;
+    const c=S.clans.find(x=>x.id===id);
+    if(c) c.paused=newPaused;
+    toast(newPaused?'Đã tạm dừng Hội — thành viên sẽ bị đăng xuất':'Đã mở lại Hội');
+  } catch(e){ toast('Lỗi: '+e.message,'er'); }
   setPulse('');
   render();
 };
