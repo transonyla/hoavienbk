@@ -500,7 +500,7 @@ const RB=`<div class="ribbon-anchor"><img data-cache-src="${RB_URL}" alt="" aria
 // src="" để browser KHÔNG request jsdelivr ngay — lazy observer sẽ điền src từ cache (hoặc url gốc)
 // khi ảnh sắp vào viewport. Đảm bảo ảnh đã cache KHÔNG BAO GIỜ request lại mạng.
 function imgTag(url, extraAttrs){
-  return `<img src="" data-cache-src="${esc(url)}" ${extraAttrs||''}>`;
+  return `<img data-cache-src="${esc(url)}" ${extraAttrs||''}>`;
 }
 
 // Helper: tạo nhãn tròn cho card hoa (size: 'sm'=mf-label, 'md'=fc-label, 'lg'=zoom-label)
@@ -1928,7 +1928,7 @@ window.openEditFlower=function(id){
           <input type="checkbox" id="ef-ocr-toggle" style="width:15px;height:15px;accent-color:var(--leaf);cursor:pointer">
           🤖 Dùng AI nhận diện tên từ ảnh
         </label>
-        <img id="ef-img-preview" src="" data-cache-src="${esc(f.imgUrl)}" style="display:${f.imgUrl?'block':'none'};margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
+        <img id="ef-img-preview" data-cache-src="${esc(f.imgUrl)}" style="display:${f.imgUrl?'block':'none'};margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
       </div>
       <div class="fg-col"><label class="fl">Thứ tự</label><input class="fi" id="ef-sort" type="number" value="${f.sortOrder}"></div>
       <div class="fg-col"><label class="fl">Nhãn số <span style="font-size:.72rem;color:var(--mist)">(14 / 21 / 23 / 25 / 28 / 30)</span></label>
