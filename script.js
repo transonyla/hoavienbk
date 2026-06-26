@@ -115,13 +115,18 @@ async function cachedImgSrc(url, imgEl){
   if(!url) return;
   const dataUrl = await imgCacheGet(url);
   if(dataUrl){
-    // Cache hit — áp dụng cho tất cả <img> có cùng data-cache-src (kể cả khi render lại nhiều lần)
+    // Cache hit — dataUrl từ IndexedDB, gán xong là ready ngay (không cần chờ network)
     document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
       if(el.src !== dataUrl) el.src = dataUrl;
+      el.classList.add('img-ready');
     });
   } else {
-    // Cache miss — gán url gốc để hiện ảnh ngay, fetch về lưu nền
-    if(imgEl && imgEl.getAttribute('src') === null) imgEl.src = url;
+    // Cache miss — gán url gốc, chờ onload mới fade in để tránh flash broken icon
+    if(imgEl && imgEl.getAttribute('src') === null){
+      imgEl.onload = () => imgEl.classList.add('img-ready');
+      imgEl.onerror = () => imgEl.classList.add('img-ready'); // lỗi thì hiện fallback
+      imgEl.src = url;
+    }
     fetchAndCacheImage(url);
   }
 }
@@ -149,6 +154,7 @@ async function fetchAndCacheImage(url){
     await imgCacheSet(url, dataUrl);
     document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
       if(el.src !== dataUrl) el.src = dataUrl;
+      el.classList.add('img-ready');
     });
   } catch(e){
     // Lỗi mạng/CORS khi fetch về cache — bỏ qua im lặng, ảnh gốc vẫn đang hiển thị bằng src ban đầu

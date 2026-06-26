@@ -770,6 +770,18 @@ body.bg-loaded::before{ opacity:.018; }
 
 /* ─── Micro-animation polish ─── */
 
+/* Ẩn icon ảnh vỡ khi src chưa được set (tránh flash broken icon từ cache async) */
+img[data-cache-src]{
+  /* Ẩn alt text + broken icon khi src rỗng */
+  color: transparent;
+  /* opacity 0 cho đến khi JS gán src xong và ảnh load thành công */
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out-quart);
+}
+img[data-cache-src].img-ready{
+  opacity: 1;
+}
+
 /* bar-user hover smoother */
 .bar-user{
   transition:background var(--dur-fast) var(--ease-out-quart);
