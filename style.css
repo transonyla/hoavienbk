@@ -22,6 +22,10 @@
   --jade:#3f9a8a;--jade2:#d9f2ec;  /* xanh ngọc bích phụ trợ */
 }
 *{box-sizing:border-box;margin:0;padding:0}
+html{
+  overscroll-behavior:none; /* chặn bounce gap iOS/Android */
+  height:100%;
+}
 body{
   font-family:'Be Vietnam Pro',sans-serif;
   color:var(--ink);min-height:100vh;font-size:15px;-webkit-tap-highlight-color:transparent;
@@ -32,6 +36,7 @@ body{
     var(--paper);
   background-attachment:fixed;
   position:relative;
+  overscroll-behavior:none;
 }
 body::before{
   content:'';position:fixed;inset:0;pointer-events:none;z-index:-1;
@@ -596,4 +601,55 @@ code{background:var(--sage);padding:1px 6px;border-radius:5px;font-size:.82em;co
 .ann-close{
   align-self:stretch;
   margin-left:auto;
+}
+
+/* ─── Background ảnh tự động theo thiết bị ─── */
+/* Dùng #bg-layer (div thật) thay ::after để tránh Android Chrome scroll bug */
+
+#bg-layer{
+  display:none;
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100dvh;
+  z-index:-2;
+  /* cover = fill toàn màn hình, crop nhẹ nếu cần — đúng với ảnh portrait mobile */
+  background-size:cover;
+  background-position:center top;
+  background-repeat:no-repeat;
+  pointer-events:none;
+  will-change:transform;
+}
+body.bg-loaded #bg-layer{ display:block; }
+
+#bg-overlay{
+  display:none;
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100dvh;
+  z-index:-1;
+  pointer-events:none;
+  will-change:transform;
+  background:
+    radial-gradient(circle at 8% 0%,  rgba(255,225,236,.52) 0%, transparent 45%),
+    radial-gradient(circle at 95% 10%, rgba(217,242,236,.32) 0%, transparent 38%),
+    radial-gradient(circle at 50% 50%, rgba(253,243,247,.38) 0%, transparent 60%),
+    rgba(253,243,247,.28);
+}
+body.bg-loaded #bg-overlay{ display:block; }
+
+/* Pattern hexagon mờ hơn khi có ảnh */
+body.bg-loaded::before{ opacity:.018; }
+
+/* Desktop: ảnh ngang dùng cover + center để fill toàn màn hình */
+@media(min-width:769px){
+  body.bg-loaded #bg-layer{
+    background-size:cover;
+    background-position:center center;
+  }
+  body.bg-loaded #bg-overlay{
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,240,245,.55) 0%, transparent 65%),
+      rgba(253,243,247,.38);
+  }
+  body.bg-loaded::before{ opacity:.015; }
 }

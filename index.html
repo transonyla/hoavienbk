@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="ribbon-addon.css">
 </head>
 <body>
+<div id="bg-layer" aria-hidden="true"></div>
+<div id="bg-overlay" aria-hidden="true"></div>
 <div class="toasts" id="toasts"></div>
 <div class="mbg" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="mbox">
@@ -47,5 +49,120 @@
 <div class="wrap" id="app"></div>
 
 <script type="module" src="script.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════
+   Hoa Viên — Background Loader v2
+   Ưu tiên: IndexedDB cache → CDN fetch → CSS fallback
+   Hỗ trợ xoay màn hình (orientationchange + resize)
+   ═══════════════════════════════════════════════════════ */
+(function () {
+  var CDN_MOBILE  = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782448451652-052kvsgu.webp';
+  var CDN_DESKTOP = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782448993224-kc9v66qo.webp';
+  var DB_NAME = 'hv-bg-cache';
+  var DB_VER  = 1;
+  var STORE   = 'images';
+
+  /* Desktop = width >= 769px — đồng bộ với CSS media query @media(min-width:769px) */
+  function isDesktopView() {
+    return window.innerWidth >= 769;
+  }
+
+  /* Revoke objectURL cũ trước khi apply mới tránh memory leak */
+  var _currentObjUrl = null;
+  var _bgLayer = document.getElementById('bg-layer');
+
+  function applyBg(url) {
+    if (_currentObjUrl && _currentObjUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(_currentObjUrl);
+    }
+    _currentObjUrl = url;
+    if (_bgLayer) _bgLayer.style.backgroundImage = 'url("' + url + '")';
+    document.body.classList.add('bg-loaded');
+  }
+
+  function openDB(cb) {
+    try {
+      var req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = function (e) { e.target.result.createObjectStore(STORE); };
+      req.onsuccess = function (e) { cb(null, e.target.result); };
+      req.onerror   = function ()  { cb('err', null); };
+    } catch(e) { cb('err', null); }
+  }
+
+  function getCache(db, key, cb) {
+    try {
+      var req = db.transaction(STORE, 'readonly').objectStore(STORE).get(key);
+      req.onsuccess = function (e) { cb(e.target.result || null); };
+      req.onerror   = function ()  { cb(null); };
+    } catch(e) { cb(null); }
+  }
+
+  function putCache(db, key, blob) {
+    try { db.transaction(STORE, 'readwrite').objectStore(STORE).put(blob, key); } catch(e) {}
+  }
+
+  function cleanOldKeys(db) {
+    var valid = [CDN_MOBILE, CDN_DESKTOP];
+    try {
+      var tx  = db.transaction(STORE, 'readwrite');
+      var req = tx.objectStore(STORE).getAllKeys();
+      req.onsuccess = function (e) {
+        (e.target.result || []).forEach(function(k) {
+          if (valid.indexOf(k) === -1) tx.objectStore(STORE).delete(k);
+        });
+      };
+    } catch(e) {}
+  }
+
+  function fetchAndCache(db, cdnUrl, fallbackApplied) {
+    fetch(cdnUrl)
+      .then(function (res) { if (!res.ok) throw 0; return res.blob(); })
+      .then(function (blob) {
+        if (db) putCache(db, cdnUrl, blob);
+        applyBg(URL.createObjectURL(blob));
+      })
+      .catch(function () {
+        /* CDN lỗi + không có cache → không add bg-loaded, giữ CSS gốc */
+      });
+  }
+
+  /* Cache DB dùng chung, mở 1 lần */
+  var _db = null;
+  function withDB(cb) {
+    if (_db) { cb(_db); return; }
+    openDB(function(err, db) { _db = db || null; cb(_db); });
+  }
+
+  function switchBg(cdnUrl) {
+    withDB(function(db) {
+      if (!db) { fetchAndCache(null, cdnUrl); return; }
+      cleanOldKeys(db);
+      getCache(db, cdnUrl, function(cached) {
+        if (cached) applyBg(URL.createObjectURL(cached));
+        else fetchAndCache(db, cdnUrl);
+      });
+    });
+  }
+
+  /* Load lần đầu */
+  switchBg(isDesktopView() ? CDN_DESKTOP : CDN_MOBILE);
+
+  /* Xoay màn hình — dùng orientationchange cho mobile, resize cho desktop */
+  var _lastDesktop = isDesktopView();
+  function onOrientationChange() {
+    setTimeout(function() {
+      var nowDesktop = isDesktopView();
+      /* CSS @media(min-width:769px) tự xử lý background-position, không cần inline override */
+      if (nowDesktop !== _lastDesktop) {
+        _lastDesktop = nowDesktop;
+        switchBg(nowDesktop ? CDN_DESKTOP : CDN_MOBILE);
+      }
+    }, 150);
+  }
+
+  window.addEventListener('orientationchange', onOrientationChange);
+  window.addEventListener('resize', onOrientationChange);
+})();
+</script>
 </body>
 </html>
