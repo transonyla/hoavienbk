@@ -80,31 +80,22 @@ async function imgCacheSet(url, dataUrl){
   } catch(e){ /* lưu cache thất bại không quan trọng, bỏ qua im lặng */ }
 }
 
-// Theo dõi các <img data-cache-src="..."> đang chờ trong DOM, để gán cache vào đúng lúc DOM đã có
-const _imgCachePending = new Map(); // url -> Set of <img> elements
-
-// Trả về src để gán ngay (ưu tiên cache có sẵn, nếu chưa có thì trả về url gốc để hiện ảnh ngay lập tức,
-// đồng thời nền sẽ tự fetch về lưu cache cho lần sau)
-function cachedImgSrc(url, imgEl){
-  if(!url) return '';
-  // Gắn marker để biết ảnh nào cần thay bằng cache khi có
-  if(imgEl){
-    imgEl.setAttribute('data-cache-src', url);
-    if(!_imgCachePending.has(url)) _imgCachePending.set(url, new Set());
-    _imgCachePending.get(url).add(imgEl);
+// Activate cache cho 1 phần tử <img data-cache-src>:
+// - Nếu cache có sẵn → gán dataUrl ngay, KHÔNG bao giờ request jsdelivr
+// - Nếu chưa có → gán url gốc để hiển thị ngay, đồng thời fetch về lưu cache nền
+async function cachedImgSrc(url, imgEl){
+  if(!url) return;
+  const dataUrl = await imgCacheGet(url);
+  if(dataUrl){
+    // Cache hit — áp dụng cho tất cả <img> có cùng data-cache-src (kể cả khi render lại nhiều lần)
+    document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
+      if(el.src !== dataUrl) el.src = dataUrl;
+    });
+  } else {
+    // Cache miss — gán url gốc để hiện ảnh ngay, fetch về lưu nền
+    if(imgEl && !imgEl.src) imgEl.src = url;
+    fetchAndCacheImage(url);
   }
-  imgCacheGet(url).then(dataUrl => {
-    if(dataUrl){
-      // Đã có cache — áp dụng ngay cho mọi <img> đang chờ url này (kể cả khi render đã chạy lại nhiều lần)
-      document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
-        if(el.src !== dataUrl) el.src = dataUrl;
-      });
-    } else {
-      // Chưa có cache — tải về 1 lần rồi lưu, không chặn hiển thị (ảnh gốc đã hiện sẵn qua src ban đầu)
-      fetchAndCacheImage(url);
-    }
-  });
-  return url; // hiện ảnh gốc ngay lập tức, không chờ cache
 }
 
 function cssEscapeAttr(s){
@@ -138,16 +129,45 @@ async function fetchAndCacheImage(url){
   }
 }
 
-// Quét toàn bộ <img data-cache-src> hiện có trong #app và kích hoạt kiểm tra cache cho từng cái.
-// Gọi ở cuối render() chính, đồng thời MutationObserver bên dưới tự bắt các ảnh sinh ra
-// từ những điểm innerHTML riêng lẻ khác (flowerGrid, tickGrid, mf-result, mm-result...)
-// để không cần sửa từng nơi gọi và không bỏ sót ảnh nào.
+// IntersectionObserver lazy load: chỉ kích hoạt cache/load khi ảnh sắp vào viewport
+let _imgLazyObserver = null;
+function getImgLazyObserver(){
+  if(_imgLazyObserver) return _imgLazyObserver;
+  _imgLazyObserver = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(!entry.isIntersecting) return;
+      const el = entry.target;
+      _imgLazyObserver.unobserve(el);
+      el.removeAttribute('data-lazy-pending');
+      const url = el.getAttribute('data-cache-src');
+      if(url) cachedImgSrc(url, el);
+    });
+  }, { rootMargin: '200px' });
+  return _imgLazyObserver;
+}
+
+function registerImgLazy(el){
+  if(el.getAttribute('data-lazy-pending')) return;
+  el.setAttribute('data-lazy-pending','1');
+  getImgLazyObserver().observe(el);
+}
+
+// Kích hoạt cache ngay lập tức (không qua lazy observer) cho container popup/overlay
+// Dùng khi ảnh đã visible ngay (zoom card, member flowers popup...)
+function activateImgEager(container){
+  container.querySelectorAll('img[data-cache-src]').forEach(el=>{
+    const url = el.getAttribute('data-cache-src');
+    if(url) cachedImgSrc(url, el);
+  });
+}
+
+// Quét toàn bộ <img data-cache-src> hiện có trong #app và đăng ký lazy load.
+// MutationObserver bên dưới tự bắt ảnh mới sinh ra từ innerHTML động.
 function activateImageCache(){
   const app=document.getElementById('app');
   if(!app) return;
   app.querySelectorAll('img[data-cache-src]').forEach(el=>{
-    const url=el.getAttribute('data-cache-src');
-    if(url) cachedImgSrc(url, el);
+    if(!el.getAttribute('data-lazy-pending')) registerImgLazy(el);
   });
   setupImageCacheObserver();
 }
@@ -161,14 +181,10 @@ function setupImageCacheObserver(){
       m.addedNodes.forEach(node=>{
         if(node.nodeType !== 1) return;
         if(node.matches && node.matches('img[data-cache-src]')){
-          const url=node.getAttribute('data-cache-src');
-          if(url) cachedImgSrc(url, node);
+          registerImgLazy(node);
         }
         if(node.querySelectorAll){
-          node.querySelectorAll('img[data-cache-src]').forEach(el=>{
-            const url=el.getAttribute('data-cache-src');
-            if(url) cachedImgSrc(url, el);
-          });
+          node.querySelectorAll('img[data-cache-src]').forEach(el=>registerImgLazy(el));
         }
       });
     }
@@ -313,6 +329,7 @@ window.openFlowerZoom=function(fid){
     </div>
     ${RB}`;
   card.querySelectorAll('img').forEach(img=>{ img.removeAttribute('loading'); img.setAttribute('decoding','async'); });
+  activateImgEager(card);
   document.getElementById('zoomBg').classList.add('on');
   void card.offsetHeight;
   card.style.transition='transform .38s cubic-bezier(.22,1,.36,1),opacity .28s ease';
@@ -370,6 +387,7 @@ window.openMemberFlowers=function(memberId,role){
     img.removeAttribute('loading');
     img.setAttribute('decoding','async');
   });
+  activateImgEager(card);
   mfBg.classList.add('on');
   // force reflow để browser tính layout xong, rồi mới bật transition
   void card.offsetHeight;
@@ -450,10 +468,11 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 const RB_URL='https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782207218380-1wiufzrp.png';
 const RB=`<div class="ribbon-anchor"><img src="${RB_URL}" data-cache-src="${RB_URL}" alt="" aria-hidden="true" draggable="false"></div>`;
 
-// Sinh thẻ <img> cho ảnh hoa, có gắn data-cache-src để hệ thống cache ảnh (IndexedDB) tự nhận diện
-// và thay bằng bản đã lưu cache khi có, mà không cần sửa lại từng nơi gọi <img> thủ công.
+// Sinh thẻ <img> cho ảnh hoa.
+// src="" để browser KHÔNG request jsdelivr ngay — lazy observer sẽ điền src từ cache (hoặc url gốc)
+// khi ảnh sắp vào viewport. Đảm bảo ảnh đã cache KHÔNG BAO GIỜ request lại mạng.
 function imgTag(url, extraAttrs){
-  return `<img src="${esc(url)}" data-cache-src="${esc(url)}" ${extraAttrs||''}>`;
+  return `<img src="" data-cache-src="${esc(url)}" ${extraAttrs||''}>`;
 }
 
 // Helper: tạo nhãn tròn cho card hoa (size: 'sm'=mf-label, 'md'=fc-label, 'lg'=zoom-label)
