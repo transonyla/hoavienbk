@@ -360,13 +360,13 @@ window.openFlowerZoom=function(fid){
   activateImgEager(card);
   document.getElementById('zoomBg').classList.add('on');
   void card.offsetHeight;
-  card.style.transition='transform .38s cubic-bezier(.22,1,.36,1),opacity .28s ease';
+  card.style.transition='transform .22s cubic-bezier(.22,1,.36,1),opacity .16s ease';
   card.style.transform='scale(1)';
   card.style.opacity='1';
 };
 window.closeZoom=function(){
   const card=document.getElementById('zoomCard');
-  card.style.transition='transform .38s cubic-bezier(.22,1,.36,1),opacity .28s ease';
+  card.style.transition='transform .18s cubic-bezier(.4,0,1,1),opacity .14s ease';
   card.style.transform='scale(.4)';
   card.style.opacity='0';
   document.getElementById('zoomBg').classList.remove('on');
@@ -419,14 +419,14 @@ window.openMemberFlowers=function(memberId,role){
   mfBg.classList.add('on');
   // force reflow để browser tính layout xong, rồi mới bật transition
   void card.offsetHeight;
-  card.style.transition='transform .32s cubic-bezier(.22,1,.36,1),opacity .24s ease';
+  card.style.transition='transform .22s cubic-bezier(.22,1,.36,1),opacity .16s ease';
   card.style.transform='translateY(0) scale(1)';
   card.style.opacity='1';
 };
 window.closeMemberFlowers=function(){
   const card=document.getElementById('mfCard');
-  card.style.transition='transform .32s cubic-bezier(.22,1,.36,1),opacity .24s ease';
-  card.style.transform='translateY(24px) scale(.96)';
+  card.style.transition='transform .18s cubic-bezier(.4,0,1,1),opacity .14s ease';
+  card.style.transform='translateY(20px) scale(.97)';
   card.style.opacity='0';
   document.getElementById('mfBg').classList.remove('on');
 };
@@ -875,10 +875,10 @@ window.goto=function(p){
     requestAnimationFrame(warmUpGPULayers);
   };
   if(pageEl){
-    pageEl.style.transition='opacity .12s ease, transform .12s ease';
+    pageEl.style.transition='opacity .09s ease, transform .09s ease';
     pageEl.style.opacity='0';
-    pageEl.style.transform='translateY(5px)';
-    setTimeout(doSwitch, 120);
+    pageEl.style.transform='translateY(4px)';
+    setTimeout(doSwitch, 90);
   } else {
     doSwitch();
   }
