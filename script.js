@@ -7,7 +7,35 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CK_SESSION  = 'hv5_session';
 const CK_CACHE_TS = 'hv5_cache_ts';
+const CK_DATA     = 'hv5_data_cache';
 const CACHE_TTL_MS = 5 * 60 * 1000;
+
+// ─── SWR DATA CACHE helpers ──────────────────────────────────────────────────
+const SWR_FIELDS = ['flowers','clans','leaders','members','ticks','rentals','trials','lastLogins','announcement'];
+
+function saveSWRCache(){
+  try {
+    const snap = {};
+    SWR_FIELDS.forEach(k => { snap[k] = S[k]; });
+    localStorage.setItem(CK_DATA, JSON.stringify(snap));
+  } catch(e){ /* quota đầy — bỏ qua */ }
+}
+
+function loadSWRCache(){
+  try {
+    const raw = localStorage.getItem(CK_DATA);
+    if(!raw) return false;
+    const snap = JSON.parse(raw);
+    SWR_FIELDS.forEach(k => { if(snap[k] !== undefined) S[k] = snap[k]; });
+    // ticks được lưu dạng object thường — giữ nguyên
+    return true;
+  } catch(e){ return false; }
+}
+
+function swrDataChanged(snap){
+  // So sánh nhanh bằng JSON — đủ dùng cho data size này
+  return JSON.stringify(snap) !== localStorage.getItem(CK_DATA);
+}
 const ADMIN_PW_HASH = '67cec4b5d00d79ebebcffdb35234c91c785dca6d03235137aecb44d04011df51';
 // GITHUB_TOKEN đã được CHUYỂN sang Supabase Edge Function (upload-image), không còn lộ ở client.
 const UPLOAD_IMAGE_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/upload-image';
@@ -93,7 +121,7 @@ async function cachedImgSrc(url, imgEl){
     });
   } else {
     // Cache miss — gán url gốc để hiện ảnh ngay, fetch về lưu nền
-    if(imgEl && !imgEl.src) imgEl.src = url;
+    if(imgEl && imgEl.getAttribute('src') === null) imgEl.src = url;
     fetchAndCacheImage(url);
   }
 }
@@ -466,7 +494,7 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
 // ─── RUY BĂNG trang trí — chỉ dùng cho zoom-card ────────────────────────────
 const RB_URL='https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782207218380-1wiufzrp.png';
-const RB=`<div class="ribbon-anchor"><img src="${RB_URL}" data-cache-src="${RB_URL}" alt="" aria-hidden="true" draggable="false"></div>`;
+const RB=`<div class="ribbon-anchor"><img data-cache-src="${RB_URL}" alt="" aria-hidden="true" draggable="false"></div>`;
 
 // Sinh thẻ <img> cho ảnh hoa.
 // src="" để browser KHÔNG request jsdelivr ngay — lazy observer sẽ điền src từ cache (hoặc url gốc)
@@ -601,6 +629,7 @@ async function loadAll(force=false){
     S.ticks={};
     tk.forEach(r=>{ S.ticks[r.id]=Array.isArray(r.flower_ids)?r.flower_ids:[]; });
     S.loaded=true; setPulse('');
+    saveSWRCache();
     localStorage.setItem(CK_CACHE_TS, Date.now().toString());
     if(S.session){
       if(S.session.role==='leader'){
@@ -820,7 +849,7 @@ function renderNav(){
     const on=S.page===t.k?'on':'';
     const imgUrl=TAB_IMG[t.k];
     const inner=imgUrl
-      ?`<img class="nvb-img" src="${imgUrl}" data-cache-src="${imgUrl}" alt="${t.l}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="nvb-txt" style="display:none">${t.l}</span>`
+      ?`<img class="nvb-img" data-cache-src="${imgUrl}" alt="${t.l}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="nvb-txt" style="display:none">${t.l}</span>`
       :t.l;
     return `<button class="nvb ${t.k in TAB_IMG?'nvb-has-img':''} ${on}" data-tab="${t.k}" onclick="goto('${t.k}')">${inner}</button>`;
   }).join('');
@@ -1899,7 +1928,7 @@ window.openEditFlower=function(id){
           <input type="checkbox" id="ef-ocr-toggle" style="width:15px;height:15px;accent-color:var(--leaf);cursor:pointer">
           🤖 Dùng AI nhận diện tên từ ảnh
         </label>
-        <img id="ef-img-preview" src="${esc(f.imgUrl)}" style="display:${f.imgUrl?'block':'none'};margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
+        <img id="ef-img-preview" src="" data-cache-src="${esc(f.imgUrl)}" style="display:${f.imgUrl?'block':'none'};margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
       </div>
       <div class="fg-col"><label class="fl">Thứ tự</label><input class="fi" id="ef-sort" type="number" value="${f.sortOrder}"></div>
       <div class="fg-col"><label class="fl">Nhãn số <span style="font-size:.72rem;color:var(--mist)">(14 / 21 / 23 / 25 / 28 / 30)</span></label>
@@ -3013,16 +3042,28 @@ function renderErr(){
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 async function init(){
-  render();
+  // SWR: nếu có cache cũ → hydrate S ngay, render lập tức (0 delay)
+  const hadCache = S.session && loadSWRCache();
+  if(hadCache){
+    S.loaded = true;
+    render();
+  } else {
+    render(); // render loading spinner
+  }
   // Đợi Supabase Auth tự khôi phục session từ localStorage (nếu có)
   const { data: { session: authSession } } = await sb.auth.getSession();
   if(!authSession && S.session){
-    // localStorage có session app nhưng Supabase Auth không còn hợp lệ → đăng xuất
     clearSession();
     S.session = null;
   }
+  // Chụp snapshot trước khi fetch để so sánh
+  const snapBefore = S.session ? localStorage.getItem(CK_DATA) : null;
   await loadAll(true);
-  render();
+  // Nếu data mới khác cache cũ → render lại UI
+  const snapAfter = S.session ? localStorage.getItem(CK_DATA) : null;
+  if(!hadCache || snapBefore !== snapAfter){
+    render();
+  }
 }
 init();
 
