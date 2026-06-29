@@ -118,24 +118,22 @@ async function imgCacheSet(url, dataUrl){
 }
 
 // Activate cache cho 1 phần tử <img data-cache-src>:
-// - Nếu cache có sẵn → gán dataUrl ngay, KHÔNG bao giờ request jsdelivr
-// - Nếu chưa có → gán url gốc để hiển thị ngay, đồng thời fetch về lưu cache nền
+// - Cache hit  → gán dataUrl từ IndexedDB ngay, KHÔNG BAO GIỜ request CDN
+// - Cache miss → fetch 1 lần duy nhất qua fetchAndCacheImage(),
+//               nếu thất bại mới fallback sang src=url để browser tự load.
 async function cachedImgSrc(url, imgEl){
   if(!url) return;
   const dataUrl = await imgCacheGet(url);
   if(dataUrl){
-    // Cache hit — dataUrl từ IndexedDB, gán xong là ready ngay (không cần chờ network)
+    // Cache hit — dataUrl từ IndexedDB, 0 request CDN
     document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
       if(el.src !== dataUrl) el.src = dataUrl;
       el.classList.add('img-ready');
     });
   } else {
-    // Cache miss — gán url gốc, chờ onload mới fade in để tránh flash broken icon
-    if(imgEl && imgEl.getAttribute('src') === null){
-      imgEl.onload = () => imgEl.classList.add('img-ready');
-      imgEl.onerror = () => imgEl.classList.add('img-ready'); // lỗi thì hiện fallback
-      imgEl.src = url;
-    }
+    // Cache miss — 1 request duy nhất qua fetchAndCacheImage.
+    // Không set imgEl.src=url trực tiếp — tránh request CDN thứ 2.
+    // Nếu fetch thất bại, fetchAndCacheImage sẽ tự fallback sang src=url.
     fetchAndCacheImage(url);
   }
 }
@@ -150,10 +148,10 @@ async function fetchAndCacheImage(url){
   _fetchingUrls.add(url);
   try {
     const res = await fetch(url, { mode: 'cors' });
-    if(!res.ok) return;
+    if(!res.ok) throw new Error('not ok');
     const blob = await res.blob();
-    // Giới hạn an toàn ~300kb để tránh phình IndexedDB nếu lỡ có ảnh nặng hơn dự kiến (~100kb)
-    if(blob.size > 300 * 1024) return;
+    // Không giới hạn size — cache tất cả kể cả webp animation.
+    // IndexedDB dùng disk storage của browser, không bị giới hạn nhỏ.
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
@@ -161,12 +159,22 @@ async function fetchAndCacheImage(url){
       reader.readAsDataURL(blob);
     });
     await imgCacheSet(url, dataUrl);
+    // Fetch thành công → set dataUrl cho tất cả img cùng url đang trong DOM
     document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
       if(el.src !== dataUrl) el.src = dataUrl;
       el.classList.add('img-ready');
     });
   } catch(e){
-    // Lỗi mạng/CORS khi fetch về cache — bỏ qua im lặng, ảnh gốc vẫn đang hiển thị bằng src ban đầu
+    // Fetch thất bại (CDN lỗi, timeout, ảnh quá lớn...) →
+    // fallback: set src=url gốc cho tất cả img đang chờ, để browser tự xử lý.
+    // Không lưu cache → lần sau vẫn thử fetch lại bình thường.
+    document.querySelectorAll(`img[data-cache-src="${cssEscapeAttr(url)}"]`).forEach(el => {
+      if(!el.src || el.src === window.location.href){
+        el.onload  = () => el.classList.add('img-ready');
+        el.onerror = () => el.classList.add('img-ready');
+        el.src = url;
+      }
+    });
   } finally {
     _fetchingUrls.delete(url);
   }
@@ -204,9 +212,18 @@ function activateImgEager(container){
   });
 }
 
-// Quét toàn bộ <img data-cache-src> hiện có trong #app và đăng ký lazy load.
+// Quét toàn bộ <img data-cache-src> hiện có:
+// - Nav bar (#navMain): eager ngay vì đã visible, không cần chờ lazy observer
+// - Phần còn lại (#app): lazy load qua IntersectionObserver
 // MutationObserver bên dưới tự bắt ảnh mới sinh ra từ innerHTML động.
 function activateImageCache(){
+  // Nav tab images — luôn visible ngay sau render, phải eager để cache ngay lần đầu
+  const nav=document.getElementById('navMain');
+  if(nav) nav.querySelectorAll('img[data-cache-src]').forEach(el=>{
+    const url=el.getAttribute('data-cache-src');
+    if(url) cachedImgSrc(url, el);
+  });
+  // Phần còn lại trong #app — lazy theo viewport
   const app=document.getElementById('app');
   if(!app) return;
   app.querySelectorAll('img[data-cache-src]').forEach(el=>{
@@ -217,8 +234,9 @@ function activateImageCache(){
 
 let _imgCacheObserver = null;
 function setupImageCacheObserver(){
-  const app=document.getElementById('app');
-  if(!app || _imgCacheObserver) return;
+  // Observe document.body thay vì #app để không miss ảnh sau khi
+  // innerHTML của #app bị replace toàn bộ (nav, overlay, announcement...).
+  if(_imgCacheObserver) return;
   _imgCacheObserver = new MutationObserver((mutations)=>{
     for(const m of mutations){
       m.addedNodes.forEach(node=>{
@@ -232,7 +250,7 @@ function setupImageCacheObserver(){
       });
     }
   });
-  _imgCacheObserver.observe(app, { childList: true, subtree: true });
+  _imgCacheObserver.observe(document.body, { childList: true, subtree: true });
 }
 const UPDATE_PASSWORD_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/hyper-service';
 
@@ -1014,9 +1032,8 @@ window.doLoginLeader=async function(){
     }
     S.msel=new Set(S.ticks[id]||[]);
     S.page='flowers';toast('Chào '+(l?.displayName||u)+' 🏆');
-    // Ghi lần đăng nhập cuối cho leader, rồi tải lại để admin thấy ngay nếu đang xem Settings
-    await writeLastLogin(id, u, l?.displayName||u, 'leader', signInData?.session?.access_token);
-    await loadAll(true);
+    // Ghi lần đăng nhập cuối (fire-and-forget, không chờ) để không delay render
+    writeLastLogin(id, u, l?.displayName||u, 'leader', signInData?.session?.access_token);
     render();
     window.scrollTo({top:0});
   } catch(e){
@@ -1047,9 +1064,8 @@ window.doLoginMember=async function(){
     }
     S.msel=new Set(S.ticks[id]||[]);
     S.page='tick';toast('Chào '+(m?.displayName||u)+' 🌸');
-    // Ghi lần đăng nhập cuối cho member, rồi tải lại để admin thấy ngay nếu đang xem Settings
-    await writeLastLogin(id, u, m?.displayName||u, 'member', signInData?.session?.access_token);
-    await loadAll(true);
+    // Ghi lần đăng nhập cuối (fire-and-forget, không chờ) để không delay render
+    writeLastLogin(id, u, m?.displayName||u, 'member', signInData?.session?.access_token);
     render();
     window.scrollTo({top:0});
   } catch(e){
