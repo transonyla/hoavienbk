@@ -39,8 +39,17 @@ function swrDataChanged(snap){
 const ADMIN_PW_HASH = '67cec4b5d00d79ebebcffdb35234c91c785dca6d03235137aecb44d04011df51';
 // GITHUB_TOKEN đã được CHUYỂN sang Supabase Edge Function (upload-image), không còn lộ ở client.
 const UPLOAD_IMAGE_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/upload-image';
-const ADMIN_LOGIN_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/admin-login';
-const CREATE_USER_URL = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/hyper-service';
+const UPLOAD_KV_URL    = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/upload-image-kv';
+const ADMIN_LOGIN_URL  = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/admin-login';
+const CREATE_USER_URL  = 'https://bqihlqndknrjcjvadgdo.supabase.co/functions/v1/hyper-service';
+
+// ─── IMG SOURCE: mỗi hoa tự quyết dùng url1 hay url2 (lưu cột img_src) ──────
+// Không có global setting — cục bộ từng hoa.
+function getFlowerImg(f){
+  if(!f) return '';
+  if(f.imgSrc === 'url2') return f.imgUrl2 || f.imgUrl || '';
+  return f.imgUrl || f.imgUrl2 || '';
+}
 
 // Helper: check response từ hyper-service, nếu CLAN_PAUSED thì force logout
 async function checkHyperPaused(res, json){
@@ -291,7 +300,9 @@ async function fsDel(colName, docId){
 function mapToRow(table, id, data){
   if(table === 'flowers'){
     return { id, name: data.name??undefined, color: data.color??undefined,
-      img_url: data.imgUrl??undefined, sort_order: data.sortOrder??undefined,
+      img_url: data.imgUrl??undefined, img_url2: data.imgUrl2??undefined,
+      img_src: data.imgSrc??undefined,
+      sort_order: data.sortOrder??undefined,
       label: data.label??undefined };
   }
   if(table === 'clans'){
@@ -355,7 +366,7 @@ window.openFlowerZoom=function(fid){
   card.style.transform='scale(.4)';
   card.style.opacity='0';
   card.innerHTML=`<button class="zoom-close" onclick="event.stopPropagation();closeZoom()">✕</button>
-    <div class="zoom-img" style="position:relative">${f.imgUrl?imgTag(f.imgUrl):`<span class="zoom-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'lg')}</div>
+    <div class="zoom-img" style="position:relative">${(fi=>fi?imgTag(fi):`<span class="zoom-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`)(getFlowerImg(f))}${labelBadgeHtml(f,'lg')}</div>
     <div class="zoom-body">
       <div class="zoom-name" style="color:${cv.h}">${esc(f.name)}</div>
       <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -398,7 +409,7 @@ window.openMemberFlowers=function(memberId,role){
       const cv=col(ck);
       return `<div class="mf-grp"><div class="mf-grp-bar" style="background:${cv.h}"></div><h3 style="color:${cv.h}">${cv.l}</h3><span class="mf-grp-cnt">${flowers.length}</span></div>
       <div class="mf-grid">${flowers.map(f=>`<div class="mf-fc">
-        <div class="mf-fc-img" style="position:relative">${f.imgUrl?imgTag(f.imgUrl,'decoding="async"'):`<span class="mf-fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'sm')}</div>
+        <div class="mf-fc-img" style="position:relative">${(fi=>fi?imgTag(fi,'decoding="async"'):`<span class="mf-fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`)(getFlowerImg(f))}${labelBadgeHtml(f,'sm')}</div>
         <div class="mf-fc-name" style="color:${cv.h}">${esc(f.name)}</div>
       </div>`).join('')}</div>`;
     }).join('');
@@ -607,7 +618,7 @@ async function loadAll(force=false){
     } catch(e){ S.announcement = null; }
     S.flowers=fl.filter(r=>r.name).map(r=>({
       id:r.id, name:r.name, color:r.color||'trang',
-      imgUrl:r.img_url||'', sortOrder:Number(r.sort_order)||0,
+      imgUrl:r.img_url||'', imgUrl2:r.img_url2||'', imgSrc:r.img_src||'url1', sortOrder:Number(r.sort_order)||0,
       label:r.label||'',
     })).sort((a,b)=>a.sortOrder-b.sortOrder);
     S.clans=cl.filter(r=>r.name).map(r=>({id:r.id,name:r.name,paused:r.paused||false}));
@@ -1151,7 +1162,7 @@ function pageFlowers(){
       const dClans=getDisplayClans(f.id);
       const dMembers=getDisplayMembers(f.id);
       return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
-        <div class="fc-img">${f.imgUrl?imgTag(f.imgUrl,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f)}</div>
+        <div class="fc-img">${(fi=>fi?imgTag(fi,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`)(getFlowerImg(f))}${labelBadgeHtml(f)}</div>
         <div class="fc-body">
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
           <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -1227,7 +1238,7 @@ function buildFlowerGrid(){
     <div class="fg">${flowers.map(f=>{
       const dC=gClans(f.id);const dM=gMembers(f.id);
       return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
-        <div class="fc-img">${f.imgUrl?imgTag(f.imgUrl,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f)}</div>
+        <div class="fc-img">${(fi=>fi?imgTag(fi,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`)(getFlowerImg(f))}${labelBadgeHtml(f)}</div>
         <div class="fc-body">
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
           <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
@@ -1260,7 +1271,7 @@ function buildColorGroupsHtml(list){
     <div class="fg">${flowers.map(f=>{
       const tk=S.msel.has(f.id);
       return `<div class="fc tc ${tk?'ticked':''}" onclick="toggleTick('${f.id}')">
-        <div class="fc-img">${f.imgUrl?imgTag(f.imgUrl,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}
+        <div class="fc-img">${(fi=>fi?imgTag(fi,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`)(getFlowerImg(f))}
         ${labelBadgeHtml(f)}<div class="chk">${tk?'✓':''}</div></div>
         <div class="fc-body"><div class="fc-name">${esc(f.name)}</div>
         <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span></div>
@@ -1826,6 +1837,39 @@ window.onImgFileChange=async function(input){
   if(uploadBtn){uploadBtn.disabled=false;uploadBtn.innerHTML='🖼️ Chọn ảnh';}
 };
 
+// ── Upload URL2 (Cloudflare KV) ───────────────────────────────────────────────
+window.triggerImgUpload2=function(){
+  document.getElementById('ef-img2-file')?.click();
+};
+window.onImgFileChange2=async function(input){
+  const file=input.files[0];
+  if(!file) return;
+  if(file.size>5*1024*1024){toast('Ảnh tối đa 5MB!','wn');return;}
+  const urlInput=document.getElementById('ef-img2');
+  const uploadBtn=document.getElementById('ef-upload2-btn');
+  if(uploadBtn){uploadBtn.disabled=true;uploadBtn.innerHTML='<div class="sp"></div> Đang upload...';}
+  try {
+    const base64=await fileToBase64(file);
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if(!accessToken){toast('Bạn cần đăng nhập lại','er');throw new Error('Chưa đăng nhập');}
+    const res=await fetch(UPLOAD_KV_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${accessToken}`},
+      body:JSON.stringify({ base64, ext }),
+    });
+    const data=await res.json();
+    if(res.ok && data.success){
+      urlInput.value=data.url;
+      toast('Upload KV thành công! ☁️');
+    } else {
+      toast('Upload KV thất bại: '+(data.error||'Lỗi không xác định'),'er');
+    }
+  } catch(e){toast('Lỗi upload KV: '+e.message,'er');}
+  if(uploadBtn){uploadBtn.disabled=false;uploadBtn.innerHTML='☁️ Upload KV';}
+};
+
 // ── FLOWERS (ADMIN) ────────────────────────────────────────────────────────────
 function manageFlowers(){
   if(!S._mfColor) S._mfColor='all';
@@ -1887,10 +1931,10 @@ window.openAddFlower=function(){
       <div class="fg-col"><label class="fl">Tên hoa *</label><input class="fi" id="ef-name" placeholder="Hoa hồng nhung"></div>
       <div class="fg-col"><label class="fl">Màu</label><div class="cpick">${sw}</div></div>
       <div class="fg-col">
-        <label class="fl">Ảnh</label>
+        <label class="fl">🖼️ Ảnh URL1 <span style="font-size:.72rem;color:var(--mist)">(GitHub + jsDelivr)</span></label>
         <input type="file" id="ef-img-file" accept="image/*" style="display:none" onchange="onImgFileChange(this)">
         <div style="display:flex;gap:8px;align-items:center">
-          <input class="fi" id="ef-img" placeholder="https://... hoặc chọn ảnh từ máy" style="flex:1">
+          <input class="fi" id="ef-img" placeholder="https://cdn.jsdelivr.net/..." style="flex:1">
           <button class="btn btn-o btn-sm" id="ef-upload-btn" type="button" onclick="triggerImgUpload()">🖼️ Chọn ảnh</button>
         </div>
         <label style="display:flex;align-items:center;gap:7px;margin-top:8px;cursor:pointer;user-select:none;font-size:.8rem;color:var(--forest2)">
@@ -1898,6 +1942,25 @@ window.openAddFlower=function(){
           🤖 Dùng AI nhận diện tên từ ảnh
         </label>
         <img id="ef-img-preview" src="" style="display:none;margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
+      </div>
+      <div class="fg-col">
+        <label class="fl">☁️ Ảnh URL2 <span style="font-size:.72rem;color:var(--mist)">(Cloudflare KV)</span></label>
+        <input type="file" id="ef-img2-file" accept="image/*" style="display:none" onchange="onImgFileChange2(this)">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="fi" id="ef-img2" placeholder="https://... (Cloudflare)" style="flex:1">
+          <button class="btn btn-o btn-sm" id="ef-upload2-btn" type="button" onclick="triggerImgUpload2()">☁️ Upload KV</button>
+        </div>
+      </div>
+      <div class="fg-col">
+        <label class="fl">Hiển thị ảnh từ</label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;cursor:pointer">
+            <input type="radio" name="ef-img-src" value="url1" checked style="accent-color:var(--leaf)"> 🖼️ URL1 (jsDelivr)
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;cursor:pointer">
+            <input type="radio" name="ef-img-src" value="url2" style="accent-color:var(--leaf)"> ☁️ URL2 (Cloudflare)
+          </label>
+        </div>
       </div>
       <div class="fg-col"><label class="fl">Thứ tự</label><input class="fi" id="ef-sort" type="number" value="0"></div>
       <div class="fg-col"><label class="fl">Nhãn số <span style="font-size:.72rem;color:var(--mist)">(14 / 21 / 23 / 25 / 28 / 30)</span></label>
@@ -1924,10 +1987,10 @@ window.openEditFlower=function(id){
       <div class="fg-col"><label class="fl">Tên hoa *</label><input class="fi" id="ef-name" value="${esc(f.name)}"></div>
       <div class="fg-col"><label class="fl">Màu</label><div class="cpick">${sw}</div></div>
       <div class="fg-col">
-        <label class="fl">Ảnh</label>
+        <label class="fl">🖼️ Ảnh URL1 <span style="font-size:.72rem;color:var(--mist)">(GitHub + jsDelivr)</span></label>
         <input type="file" id="ef-img-file" accept="image/*" style="display:none" onchange="onImgFileChange(this)">
         <div style="display:flex;gap:8px;align-items:center">
-          <input class="fi" id="ef-img" value="${esc(f.imgUrl)}" placeholder="https://... hoặc chọn ảnh từ máy" style="flex:1">
+          <input class="fi" id="ef-img" value="${esc(f.imgUrl)}" placeholder="https://cdn.jsdelivr.net/..." style="flex:1">
           <button class="btn btn-o btn-sm" id="ef-upload-btn" type="button" onclick="triggerImgUpload()">🖼️ Chọn ảnh</button>
         </div>
         <label style="display:flex;align-items:center;gap:7px;margin-top:8px;cursor:pointer;user-select:none;font-size:.8rem;color:var(--forest2)">
@@ -1935,6 +1998,25 @@ window.openEditFlower=function(id){
           🤖 Dùng AI nhận diện tên từ ảnh
         </label>
         <img id="ef-img-preview" data-cache-src="${esc(f.imgUrl)}" style="display:${f.imgUrl?'block':'none'};margin-top:8px;width:100%;max-height:140px;object-fit:cover;border-radius:9px;border:1px solid var(--bd)">
+      </div>
+      <div class="fg-col">
+        <label class="fl">☁️ Ảnh URL2 <span style="font-size:.72rem;color:var(--mist)">(Cloudflare KV)</span></label>
+        <input type="file" id="ef-img2-file" accept="image/*" style="display:none" onchange="onImgFileChange2(this)">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="fi" id="ef-img2" value="${esc(f.imgUrl2||'')}" placeholder="https://... (Cloudflare)" style="flex:1">
+          <button class="btn btn-o btn-sm" id="ef-upload2-btn" type="button" onclick="triggerImgUpload2()">☁️ Upload KV</button>
+        </div>
+      </div>
+      <div class="fg-col">
+        <label class="fl">Hiển thị ảnh từ</label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;cursor:pointer">
+            <input type="radio" name="ef-img-src" value="url1" ${(f.imgSrc||'url1')==='url1'?'checked':''} style="accent-color:var(--leaf)"> 🖼️ URL1 (jsDelivr)
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;cursor:pointer">
+            <input type="radio" name="ef-img-src" value="url2" ${f.imgSrc==='url2'?'checked':''} style="accent-color:var(--leaf)"> ☁️ URL2 (Cloudflare)
+          </label>
+        </div>
       </div>
       <div class="fg-col"><label class="fl">Thứ tự</label><input class="fi" id="ef-sort" type="number" value="${f.sortOrder}"></div>
       <div class="fg-col"><label class="fl">Nhãn số <span style="font-size:.72rem;color:var(--mist)">(14 / 21 / 23 / 25 / 28 / 30)</span></label>
@@ -1962,6 +2044,8 @@ window.doSaveFlower=async function(){
   const name=document.getElementById('ef-name')?.value.trim();
   if(!name){toast('Nhập tên hoa!','wn');return;}
   const imgUrl=document.getElementById('ef-img')?.value.trim()||'';
+  const imgUrl2=document.getElementById('ef-img2')?.value.trim()||'';
+  const imgSrc=document.querySelector('input[name="ef-img-src"]:checked')?.value||'url1';
   const sortOrder=Number(document.getElementById('ef-sort')?.value)||0;
   const color=S._editColor||'trang';
   const label=document.getElementById('ef-label')?.value||'';
@@ -1970,14 +2054,14 @@ window.doSaveFlower=async function(){
   setPulse('loading');
   try {
     if(S._editFlowerId){
-      await fsSet('flowers',S._editFlowerId,{name,color,imgUrl,sortOrder,label});
+      await fsSet('flowers',S._editFlowerId,{name,color,imgUrl,imgUrl2,imgSrc,sortOrder,label});
       const f=S.flowers.find(x=>x.id===S._editFlowerId);
-      if(f){f.name=name;f.color=color;f.imgUrl=imgUrl;f.sortOrder=sortOrder;f.label=label;}
+      if(f){f.name=name;f.color=color;f.imgUrl=imgUrl;f.imgUrl2=imgUrl2;f.imgSrc=imgSrc;f.sortOrder=sortOrder;f.label=label;}
       toast('Đã cập nhật hoa');
     } else {
       const newId='f'+Date.now();
-      await fsSet('flowers',newId,{name,color,imgUrl,sortOrder,label});
-      S.flowers.push({id:newId,name,color,imgUrl,sortOrder,label});
+      await fsSet('flowers',newId,{name,color,imgUrl,imgUrl2,imgSrc,sortOrder,label});
+      S.flowers.push({id:newId,name,color,imgUrl,imgUrl2,imgSrc,sortOrder,label});
       toast('Đã thêm hoa 🌸');
     }
     S.flowers.sort((a,b)=>a.sortOrder-b.sortOrder);
