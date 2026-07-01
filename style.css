@@ -362,15 +362,12 @@ body::before{
 .tsec-hint{font-size:.66rem;font-weight:700;color:var(--mist);background:var(--white);border:1px solid var(--bd);padding:3px 8px;border-radius:var(--rp);flex-shrink:0;white-space:nowrap}
 .tsec-body{padding:4px 15px 16px 19px;
   overflow:hidden;
-  max-height:none;
   opacity:1;
-  transition:max-height var(--dur-med) var(--ease-out-quart),
-             opacity var(--dur-fast) var(--ease-out-quart);
+  transition:opacity var(--dur-fast) var(--ease-out-quart);
 }
-.tsec.closed .tsec-body{max-height:0;opacity:0;padding-top:0;padding-bottom:0;
-  transition:max-height var(--dur-med) var(--ease-out-quart),
-             opacity var(--dur-fast) var(--ease-out-quart),
-             padding var(--dur-fast) var(--ease-out-quart);
+.tsec.closed .tsec-body{
+  display:none;
+  opacity:0;
 }
 @media (max-width:480px){.tsec-hint{display:none}}
 
@@ -388,6 +385,30 @@ select.fi{cursor:pointer;appearance:none;background-image:url("data:image/svg+xm
 .sbar{position:relative;margin-bottom:16px}
 .sbar input{padding-left:38px}
 .sico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--haze);pointer-events:none;font-size:14px}
+
+/* ─── Nút xoá nhanh (✕) trong các ô tìm kiếm ─── */
+.sbar-plain{position:relative}
+.sbar input,.sbar-plain input{padding-right:34px}
+.sbar-x{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:24px;height:24px;border:none;border-radius:50%;
+  background:rgba(90,48,71,.08);color:var(--mist);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;line-height:1;cursor:pointer;
+  transition:background var(--dur-fast) var(--ease-out-quart),color var(--dur-fast) var(--ease-out-quart);
+  -webkit-tap-highlight-color:transparent;
+}
+.sbar-x:hover{background:rgba(90,48,71,.16);color:var(--ink)}
+.sbar-x:active{transform:translateY(-50%) scale(.9)}
+
+/* ─── Thanh tìm kiếm + bộ lọc dính top ở tab Đánh dấu khi cuộn trang (nền trong suốt) ─── */
+.tick-sticky{
+  position:sticky;top:58px;z-index:150;
+  background:transparent;
+  padding-top:8px;margin-bottom:0;
+}
+.tick-sticky .cfbar{margin-bottom:10px}
+.tick-sticky .sbar{margin-bottom:12px}
 
 .cfbar{display:flex;gap:2px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:18px;
   mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);

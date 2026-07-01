@@ -504,6 +504,20 @@ window.setTcolor=function(v){
   if(tickGrid){tickGrid.innerHTML=buildTickGrid();return;}
   render();
 };
+// ─── Nút xoá nhanh (✕) cho các ô tìm kiếm ───────────────────────────────────
+window.toggleClearBtn=function(inputEl){
+  const btn=inputEl && inputEl.parentElement && inputEl.parentElement.querySelector('.sbar-x');
+  if(btn) btn.style.display=inputEl.value?'flex':'none';
+};
+window.clearSearchInput=function(inputId,setterName){
+  const el=document.getElementById(inputId);
+  if(!el) return;
+  el.value='';
+  toggleClearBtn(el);
+  if(typeof window[setterName]==='function') window[setterName]('');
+  el.focus();
+};
+
 let _fqTimer=null;
 window.setFq=function(v){
   S.fq=v;
@@ -1153,7 +1167,7 @@ function pageFlowers(){
   // Pre-compute owned counts per color for member/leader — now handled by buildFlowerCfbarInner()
   const colorFilter=`<div class="cfbar" id="flower-cfbar">${buildFlowerCfbarInner()}</div>`;
 
-  const searchBar=`<div class="sbar"><span class="sico">🔍</span><input class="fi" id="fq" value="${esc(S.fq)}" placeholder="Tìm tên hoa..." oninput="setFq(this.value)"></div>`;
+  const searchBar=`<div class="sbar"><span class="sico">🔍</span><input class="fi" id="fq" value="${esc(S.fq)}" placeholder="Tìm tên hoa..." oninput="setFq(this.value);toggleClearBtn(this)"><button type="button" class="sbar-x" style="display:${S.fq?'flex':'none'}" onclick="clearSearchInput('fq','setFq')" aria-label="Xoá tìm kiếm" tabindex="-1">✕</button></div>`;
 
   // For member/leader: only show flowers that at least 1 member in their clan has ticked
   if(isMember()||isLeader()){
@@ -1342,8 +1356,28 @@ function buildTickGrid(){
 }
 window.toggleTickSec=function(key){
   S._tickSecOpen[key]=!(S._tickSecOpen[key]!==false);
-  const el=document.getElementById('tsec-'+key);
-  if(el) el.classList.toggle('closed', S._tickSecOpen[key]===false);
+  const sec=document.getElementById('tsec-'+key);
+  if(!sec) return;
+  const body=document.getElementById('tsec-'+key+'-body');
+  const closing=S._tickSecOpen[key]===false;
+  sec.classList.toggle('closed', closing);
+  if(!body) return;
+  if(closing){
+    // Đóng: fade out opacity trước, sau đó display:none để browser skip layout
+    body.style.opacity='0';
+    body.style.pointerEvents='none';
+    setTimeout(()=>{
+      // Chỉ hide nếu vẫn còn đóng (user chưa mở lại)
+      if(S._tickSecOpen[key]===false) body.style.display='none';
+    }, 130); // khớp với --dur-fast
+  } else {
+    // Mở: display lại trước, rồi fade in
+    body.style.display='';
+    body.style.pointerEvents='';
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{ body.style.opacity='1'; });
+    });
+  }
 };
 
 // ─── TICK PAGE (MEMBER / LEADER) ──────────────────────────────────────────────
@@ -1397,9 +1431,9 @@ function pageTick(){
 
   // cfbar và grid có id riêng → partial update không cần rebuild cả trang
   const colorFilter=`<div class="cfbar" id="tick-cfbar">${buildTickCfbarInner()}</div>`;
-  const searchBar=`<div class="sbar"><span class="sico">🔍</span><input class="fi" id="tq" value="${esc(S.tq)}" placeholder="Tìm tên hoa..." oninput="setTq(this.value)"></div>`;
+  const searchBar=`<div class="sbar"><span class="sico">🔍</span><input class="fi" id="tq" value="${esc(S.tq)}" placeholder="Tìm tên hoa..." oninput="setTq(this.value);toggleClearBtn(this)"><button type="button" class="sbar-x" style="display:${S.tq?'flex':'none'}" onclick="clearSearchInput('tq','setTq')" aria-label="Xoá tìm kiếm" tabindex="-1">✕</button></div>`;
 
-  return proxyHtml+info+colorFilter+searchBar+`<div id="tick-grid">${buildTickGrid()}</div>`;
+  return proxyHtml+info+`<div class="tick-sticky">${colorFilter}${searchBar}</div>`+`<div id="tick-grid">${buildTickGrid()}</div>`;
 }
 
 window.setProxyMember=function(memberId){
@@ -1896,7 +1930,10 @@ function manageFlowers(){
     <div class="card-title">🌸 Quản lý hoa <span id="mf-count" style="font-size:.76rem;font-weight:600;color:var(--mist)"></span>
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddFlower()">+ Thêm hoa</button>
     </div>
-    <input class="fi" style="margin-bottom:10px" placeholder="🔍 Tìm theo tên hoa..." value="${esc(S._mfQuery)}" oninput="setMfQuery(this.value)">
+    <div class="sbar-plain" style="margin-bottom:10px">
+      <input class="fi" id="mfq" placeholder="🔍 Tìm theo tên hoa..." value="${esc(S._mfQuery)}" oninput="setMfQuery(this.value);toggleClearBtn(this)">
+      <button type="button" class="sbar-x" style="display:${S._mfQuery?'flex':'none'}" onclick="clearSearchInput('mfq','setMfQuery')" aria-label="Xoá tìm kiếm" tabindex="-1">✕</button>
+    </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${colorChips}</div>
     <div id="mf-result"></div>
   </div>`;
@@ -2113,7 +2150,10 @@ function manageAllMembers(){
     S.clans.map(c=>`<button class="chip ${S._mmClan===c.id?'on':''}" onclick="setMmClan('${c.id}')">🏅 ${esc(c.name)}</button>`).join('');
   return `<div class="card">
     <div class="card-title">👥 Tất cả thành viên <span id="mm-count" style="font-size:.76rem;font-weight:600;color:var(--mist)"></span></div>
-    <input class="fi" style="margin-bottom:10px" placeholder="🔍 Tìm theo tên, username hoặc id..." value="${esc(S._mmQuery)}" oninput="setMmQuery(this.value)">
+    <div class="sbar-plain" style="margin-bottom:10px">
+      <input class="fi" id="mmq" placeholder="🔍 Tìm theo tên, username hoặc id..." value="${esc(S._mmQuery)}" oninput="setMmQuery(this.value);toggleClearBtn(this)">
+      <button type="button" class="sbar-x" style="display:${S._mmQuery?'flex':'none'}" onclick="clearSearchInput('mmq','setMmQuery')" aria-label="Xoá tìm kiếm" tabindex="-1">✕</button>
+    </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${clanChips}</div>
     <div id="mm-result"></div>
   </div>`;
