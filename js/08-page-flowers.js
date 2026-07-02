@@ -13,6 +13,7 @@ window.setFcolor=function(v){
   if(flowerGrid){flowerGrid.innerHTML=buildFlowerGrid();return;}
   render();
 };
+let _fqTimer=null;
 window.setFq=function(v){
   S.fq=v;
   clearTimeout(_fqTimer);

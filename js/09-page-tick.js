@@ -14,6 +14,7 @@ window.setTcolor=function(v){
   if(tickGrid){tickGrid.innerHTML=buildTickGrid();return;}
   render();
 };
+let _tqTimer=null;
 window.setTq=function(v){
   S.tq=v;
   clearTimeout(_tqTimer);
