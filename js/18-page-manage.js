@@ -7,6 +7,7 @@ import { manageAllMembers, manageClanMembers } from './14-manage-members.js';
 import { manageRentals } from './15-manage-rentals.js';
 import { manageTrials } from './16-manage-trials.js';
 import { manageAnnouncement } from './17-manage-announcement.js';
+import { manageClanV2 } from './23-manage-clans-v2.js';
 
 export function pageManage(){
   if(!isAdmin()&&!isLeader()) return `<div class="empty"><div class="empty-icon">🔒</div>Không có quyền</div>`;
@@ -14,12 +15,13 @@ export function pageManage(){
   // Admin: tab-based layout
   if(!S._manageTab) S._manageTab='clans';
   const tabs=[
-    {k:'clans',  l:'🏅 Hội',        fn:manageClans},
-    {k:'leaders',l:'🏆 Hội trưởng', fn:manageLeaders},
-    {k:'flowers',l:'🌸 Hoa',         fn:manageFlowers},
-    {k:'members',l:'👥 Thành viên',  fn:manageAllMembers},
-    {k:'rentals',l:'🏠 Hội Đã Thuê', fn:manageRentals},
-    {k:'trials', l:'⏳ Hội Dùng Thử',fn:manageTrials},
+    {k:'clans',    l:'🏅 Hội',          fn:manageClans},
+    {k:'clansv2',  l:'🏅 Hội V2',       fn:manageClanV2},
+    {k:'leaders',  l:'🏆 Hội trưởng',   fn:manageLeaders},
+    {k:'flowers',  l:'🌸 Hoa',           fn:manageFlowers},
+    {k:'members',  l:'👥 Thành viên',    fn:manageAllMembers},
+    {k:'rentals',  l:'🏠 Hội Đã Thuê',  fn:manageRentals},
+    {k:'trials',   l:'⏳ Hội Dùng Thử', fn:manageTrials},
     {k:'announcement', l:'📢 Thông Báo', fn:manageAnnouncement},
   ];
   const tabBar=`<div class="nav" style="margin-bottom:16px">${tabs.map(t=>`<button class="nvb ${S._manageTab===t.k?'on':''}" onclick="setManageTab('${t.k}')">${t.l}</button>`).join('')}</div>`;
@@ -31,4 +33,3 @@ window.setManageTab=function(k){S._manageTab=k;render();};
 function manageLeaderSection(){
   return manageClanMembers();
 }
-

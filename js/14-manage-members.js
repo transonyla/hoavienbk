@@ -134,7 +134,8 @@ export function manageClanMembers(){
     <td><strong>${esc(m.displayName)}</strong>${m.alias?`<span style="font-size:.74rem;color:var(--mist);margin-left:6px">${esc(m.alias)}</span>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
     <td style="font-size:.78rem;color:var(--mist)">${m.year||'—'}</td>
     <td style="font-size:.78rem;color:var(--mist)">${(S.ticks[m.id]||[]).length} hoa</td>
-    <td><button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
+    <td style="font-size:.78rem"><code style="background:var(--sage);padding:2px 6px;border-radius:6px;user-select:all">${esc(m.password||'—')}</code></td>
+    <td style="white-space:nowrap"><button class="ibtn" onclick="openEditMemberLeader('${m.id}')">✏️</button> <button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
   </tr>`).join('');
   const noteHtml=`<div class="card" style="margin-bottom:14px;border:1.5px solid #f59e0b;background:#fffbeb">
     <div style="display:flex;align-items:flex-start;gap:10px">
@@ -150,7 +151,7 @@ export function manageClanMembers(){
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddMember()">+ Thêm TV</button>
     </div>
     ${myMembers.length===0?`<div class="empty"><div class="empty-icon">👤</div>Chưa có thành viên</div>`
-    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên</th><th>Năm sinh</th><th>Hoa</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên</th><th>Năm sinh</th><th>Hoa</th><th>Mật khẩu</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
   </div>`;
 }
 
@@ -224,6 +225,63 @@ window.doAddMember=async function(){
   }
   setPulse('');
 };
+// ── EDIT MEMBER (LEADER) — chỉ sửa tên hiển thị + mật khẩu, giới hạn cùng clanId ──
+window.openEditMemberLeader=function(id){
+  const clanId = myClanId();
+  const m = S.members.find(x=>x.id===id && x.clanId===clanId);
+  if(!m){toast('Không tìm thấy hoặc không có quyền!','er');return;}
+  openModal('✏️ Sửa thành viên',
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fg-col"><label class="fl">Tên hiển thị</label><input class="fi" id="elm-d" value="${esc(m.displayName)}"></div>
+      <div class="fg-col"><label class="fl">Mật khẩu mới (để trống nếu không đổi)</label>
+        <input class="fi" id="elm-p" type="text" placeholder="Nhập mật khẩu mới...">
+        <div style="font-size:.72rem;color:var(--mist);margin-top:4px">Hiện tại: <code style="background:var(--sage);padding:2px 6px;border-radius:6px">${esc(m.password||'(trống)')}</code></div>
+      </div>
+    </div>`,
+    `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doEditMemberLeader('${id}')">💾 Lưu</button>`
+  );
+};
+window.doEditMemberLeader=async function(id){
+  const clanId = myClanId();
+  const m = S.members.find(x=>x.id===id && x.clanId===clanId);
+  if(!m){toast('Không tìm thấy hoặc không có quyền!','er');return;}
+  const d = document.getElementById('elm-d')?.value.trim();
+  const newPw = document.getElementById('elm-p')?.value;
+  if(!d){toast('Nhập tên hiển thị!','wn');return;}
+  const btn=document.querySelector('.mbox .btn-g');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  setPulse('loading');
+  try {
+    const updateData = {
+      username:m.username, displayName:d, clanId:m.clanId,
+      leaderId:m.leaderId, alias:m.alias, year:m.year,
+      password: newPw||m.password
+    };
+    await fsSet('members', id, updateData);
+    m.displayName=d;
+    if(newPw){
+      m.password=newPw;
+      const { data: sessData } = await sb.auth.getSession();
+      const jwt = sessData?.session?.access_token;
+      const res = await fetch(UPDATE_PASSWORD_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+        body:JSON.stringify({action:'updatePassword',refId:id,newPassword:newPw})
+      });
+      const result = await res.json();
+      if(!res.ok||!result.success){
+        toast('Đã lưu tên, nhưng lỗi đổi mật khẩu đăng nhập: '+(result.error||'không rõ'),'wn');
+        closeModal();render();setPulse('');return;
+      }
+    }
+    closeModal();toast('Đã lưu: '+d);render();
+  } catch(e){
+    toast('Lỗi: '+e.message,'er');
+    if(btn){btn.disabled=false;btn.innerHTML='💾 Lưu';}
+  }
+  setPulse('');
+};
+
 window.confirmDelMember=function(id){
   const m=S.members.find(x=>x.id===id);
   openModal('⚠️ Xóa thành viên',`Xóa <b>${esc(m?.displayName||id)}</b>? Dữ liệu tick cũng bị xóa.`,
