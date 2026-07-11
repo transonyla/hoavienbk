@@ -38,7 +38,7 @@ window.openFlowerZoom=function(fid){
     <div class="zoom-body">
       <div class="zoom-name" style="color:${cv.h}">${esc(f.name)}</div>
       <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
-      <div class="zoom-owners">${ownershipTagsHtml(fid)}</div>
+      <div class="zoom-owners">${ownershipTagsHtml(fid,f.name)}</div>
     </div>
     ${RB}`;
   card.querySelectorAll('img').forEach(img=>{ img.removeAttribute('loading'); img.setAttribute('decoding','async'); });
@@ -192,9 +192,27 @@ function getFlowerOwnership(fid){
   }
   return {clans,members};
 }
-function ownershipTagsHtml(fid){
+function ownershipTagsHtml(fid,flowerName){
   const {clans,members}=getFlowerOwnership(fid);
+  const fn = esc(flowerName||'');
   return (clans.length?`<div class="fc-clans">${clans.map(n=>`<span class="clan-tag">🏅 ${esc(n)}</span>`).join('')}</div>`:'')
-    +(members.length?`<div class="fc-clans">${members.map(m=>`<span class="clan-tag" style="background:#e0f2fe;color:#0369a1">👤 ${esc(m.displayName)}</span>`).join('')}</div>`:'');
+    +(members.length?`<div class="fc-clans">${members.map(m=>`<span class="clan-tag copy-tag" style="background:#e0f2fe;color:#0369a1" onclick="copyGreeting('${esc(m.displayName).replace(/'/g,"\\'")}','${fn.replace(/'/g,"\\'")}')">${esc(m.displayName)}</span>`).join('')}</div>`:'');
 }
+
+// ─── Copy lời chào nhắc thành viên làm nhiệm vụ hoa ─────────────────────────
+window.copyGreeting=function(name,flowerName){
+  const msg=`👋 ${name} ơi có nhiệm vụ "${flowerName}" chờ bạn làm nè`;
+  const done=()=>toast('Đã sao chép lời nhắn');
+  const fail=()=>{
+    // fallback cho trình duyệt/webview cũ không hỗ trợ Clipboard API
+    const ta=document.createElement('textarea');
+    ta.value=msg; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ toast('Không sao chép được','er'); }
+    document.body.removeChild(ta);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(msg).then(done).catch(fail);
+  } else { fail(); }
+};
 

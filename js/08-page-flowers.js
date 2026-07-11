@@ -115,7 +115,7 @@ export function pageFlowers(){
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
           <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
           ${dClans.length?`<div class="fc-clans">${dClans.map(n=>`<span class="clan-tag">🏅 ${esc(n)}</span>`).join('')}</div>`:''}
-          ${dMembers.length?`<div class="fc-clans">${dMembers.map(m=>`<span class="clan-tag" style="background:#e0f2fe;color:#0369a1">👤 ${esc(m.displayName)}</span>`).join('')}</div>`:''}
+          ${dMembers.length?`<div class="fc-clans">${dMembers.map(m=>`<span class="clan-tag copy-tag" style="background:#e0f2fe;color:#0369a1" onclick="event.stopPropagation();copyGreeting('${esc(m.displayName).replace(/'/g,"\\'")}','${esc(f.name).replace(/'/g,"\\'")}')">${esc(m.displayName)}</span>`).join('')}</div>`:''}
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -187,7 +187,7 @@ function buildFlowerGrid(){
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
           <span class="fc-badge" style="background:${cv.h}18;color:${cv.h}"><span class="fc-dot" style="background:${cv.h}"></span>${cv.l}</span>
           ${dC.length?`<div class="fc-clans">${dC.map(n=>`<span class="clan-tag">🏅 ${esc(n)}</span>`).join('')}</div>`:''}
-          ${dM.length?`<div class="fc-clans">${dM.map(m=>`<span class="clan-tag" style="background:#e0f2fe;color:#0369a1">👤 ${esc(m.displayName)}</span>`).join('')}</div>`:''}
+          ${dM.length?`<div class="fc-clans">${dM.map(m=>`<span class="clan-tag copy-tag" style="background:#e0f2fe;color:#0369a1" onclick="event.stopPropagation();copyGreeting('${esc(m.displayName).replace(/'/g,"\\'")}','${esc(f.name).replace(/'/g,"\\'")}')">${esc(m.displayName)}</span>`).join('')}</div>`:''}
         </div>
       </div>`;
     }).join('')}</div>`;
