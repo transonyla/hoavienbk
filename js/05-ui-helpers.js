@@ -1,4 +1,4 @@
-import { col } from './01-config.js';
+import { col, COLS } from './01-config.js';
 import { S, isLeader, isMember, myClanId, myClanName } from './02-state.js';
 import { activateImgEager, getFlowerImg } from './03-image-cache.js';
 
@@ -71,7 +71,10 @@ window.openMemberFlowers=function(memberId,role){
   if(owned.size===0){
     bodyHtml=`<div class="empty"><div class="empty-icon">🌿</div>Chưa đánh dấu hoa nào</div>`;
   } else {
-    bodyHtml=Object.entries(groups).map(([ck,flowers])=>{
+    bodyHtml=Object.entries(groups).sort((a,b)=>{
+      const ia=COLS.findIndex(c=>c.k===a[0]), ib=COLS.findIndex(c=>c.k===b[0]);
+      return ib-ia; // COLS: trang,xanh,lam,tim,cam,do → đảo ngược = do,cam,tim,lam,xanh,trang
+    }).map(([ck,flowers])=>{
       const cv=col(ck);
       return `<div class="mf-grp"><div class="mf-grp-bar" style="background:${cv.h}"></div><h3 style="color:${cv.h}">${cv.l}</h3><span class="mf-grp-cnt">${flowers.length}</span></div>
       <div class="mf-grid">${flowers.map(f=>`<div class="mf-fc">
