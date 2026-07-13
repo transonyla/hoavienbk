@@ -46,18 +46,21 @@
   <span>Lên đầu</span>
 </button>
 
+<button id="music-toggle-btn" title="Bật/tắt nhạc nền" aria-label="Bật/tắt nhạc nền">🔊</button>
+
 <div class="wrap" id="app"></div>
 
 <script type="module" src="js/22-main.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════
-   Hoa Viên — Background Loader v2
+   Hoa Viên — Background Loader v2 + Nhạc nền cache
    Ưu tiên: IndexedDB cache → CDN fetch → CSS fallback
    Hỗ trợ xoay màn hình (orientationchange + resize)
    ═══════════════════════════════════════════════════════ */
 (function () {
   var CDN_MOBILE  = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782448451652-052kvsgu.webp';
   var CDN_DESKTOP = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1782448993224-kc9v66qo.webp';
+  var CDN_MUSIC   = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/mbg.mp3';
   var DB_NAME = 'hv-bg-cache';
   var DB_VER  = 1;
   var STORE   = 'images';
@@ -102,7 +105,7 @@
   }
 
   function cleanOldKeys(db) {
-    var valid = [CDN_MOBILE, CDN_DESKTOP];
+    var valid = [CDN_MOBILE, CDN_DESKTOP, CDN_MUSIC];
     try {
       var tx  = db.transaction(STORE, 'readwrite');
       var req = tx.objectStore(STORE).getAllKeys();
@@ -114,15 +117,23 @@
     } catch(e) {}
   }
 
-  function fetchAndCache(db, cdnUrl, fallbackApplied) {
+  function fetchAndCache(db, cdnUrl) {
     fetch(cdnUrl)
       .then(function (res) { if (!res.ok) throw 0; return res.blob(); })
       .then(function (blob) {
         if (db) putCache(db, cdnUrl, blob);
-        applyBg(URL.createObjectURL(blob));
+        var url = URL.createObjectURL(blob);
+        // Nếu là ảnh → applyBg
+        if (cdnUrl.endsWith('.webp') || cdnUrl.endsWith('.jpg') || cdnUrl.endsWith('.png')) {
+          applyBg(url);
+        }
+        // Nếu là nhạc → trigger sự kiện để main.js dùng
+        if (cdnUrl.endsWith('.mp3')) {
+          window.dispatchEvent(new CustomEvent('music-cached', { detail: { url: url } }));
+        }
       })
       .catch(function () {
-        /* CDN lỗi + không có cache → không add bg-loaded, giữ CSS gốc */
+        /* CDN lỗi + không có cache → giữ CSS gốc */
       });
   }
 
@@ -138,21 +149,31 @@
       if (!db) { fetchAndCache(null, cdnUrl); return; }
       cleanOldKeys(db);
       getCache(db, cdnUrl, function(cached) {
-        if (cached) applyBg(URL.createObjectURL(cached));
-        else fetchAndCache(db, cdnUrl);
+        if (cached) {
+          var url = URL.createObjectURL(cached);
+          if (cdnUrl.endsWith('.mp3')) {
+            window.dispatchEvent(new CustomEvent('music-cached', { detail: { url: url } }));
+          } else {
+            applyBg(url);
+          }
+        } else {
+          fetchAndCache(db, cdnUrl);
+        }
       });
     });
   }
 
-  /* Load lần đầu */
+  /* Load ảnh lần đầu */
   switchBg(isDesktopView() ? CDN_DESKTOP : CDN_MOBILE);
+  
+  /* Cache nhạc nền */
+  switchBg(CDN_MUSIC);
 
   /* Xoay màn hình — dùng orientationchange cho mobile, resize cho desktop */
   var _lastDesktop = isDesktopView();
   function onOrientationChange() {
     setTimeout(function() {
       var nowDesktop = isDesktopView();
-      /* CSS @media(min-width:769px) tự xử lý background-position, không cần inline override */
       if (nowDesktop !== _lastDesktop) {
         _lastDesktop = nowDesktop;
         switchBg(nowDesktop ? CDN_DESKTOP : CDN_MOBILE);
