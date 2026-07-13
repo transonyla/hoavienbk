@@ -1,4 +1,4 @@
-import { CK_DATA, sb } from './01-config.js';
+import { CK_DATA, sb, BG_MUSIC_URL, CK_MUSIC_ON } from './01-config.js';
 import { S, clearSession, loadSWRCache } from './02-state.js';
 import { loadAll } from './04-api.js';
 import { render } from './06-render.js';
@@ -35,4 +35,113 @@ init();
   window.addEventListener('scroll',function(){
     btn.classList.toggle('visible',window.scrollY>220);
   },{passive:true});
+})();
+
+// ─── Nhạc nền: dùng từ IndexedDB cache nếu có ───────────────────────────
+(function(){
+  var musicBtn=document.getElementById('music-toggle-btn');
+  if(!musicBtn) return;
+
+  var audio = new Audio();
+  audio.loop = true;
+  audio.volume = 0.4;
+  audio.preload = 'auto';
+
+  var saved = localStorage.getItem(CK_MUSIC_ON);
+  var wantsMusic = saved === null ? true : saved === '1';
+  var musicUrlSet = false;
+  var playAttempted = false;
+  var listenersAttached = false;
+
+  function updateBtnUI(){
+    musicBtn.textContent = wantsMusic ? '🔊' : '🔇';
+    musicBtn.classList.toggle('muted', !wantsMusic);
+  }
+  updateBtnUI();
+
+  function tryPlay(){
+    if(!wantsMusic || playAttempted) return;
+    if(!audio.src) return; // chưa có URL
+    playAttempted = true;
+    
+    audio.play().then(function(){
+      removeListeners();
+    }).catch(function(){
+      attachListeners();
+    });
+  }
+
+  function attachListeners(){
+    if(listenersAttached) return;
+    listenersAttached = true;
+    document.addEventListener('click', handleUserInteraction, {once: true});
+    document.addEventListener('touchstart', handleUserInteraction, {once: true, passive: true});
+  }
+
+  function removeListeners(){
+    if(!listenersAttached) return;
+    listenersAttached = false;
+    document.removeEventListener('click', handleUserInteraction);
+    document.removeEventListener('touchstart', handleUserInteraction);
+  }
+
+  function handleUserInteraction(){
+    playAttempted = false;
+    tryPlay();
+  }
+
+  // ── Lắng nghe sự kiện từ cache ảnh ──
+  window.addEventListener('music-cached', function(e) {
+    if (!musicUrlSet) {
+      audio.src = e.detail.url;
+      musicUrlSet = true;
+      if (wantsMusic) tryPlay();
+    }
+  });
+
+  // ── Fallback: nếu sau 3s chưa có cache, dùng URL gốc ──
+  setTimeout(function() {
+    if (!musicUrlSet) {
+      audio.src = BG_MUSIC_URL;
+      musicUrlSet = true;
+      if (wantsMusic) tryPlay();
+    }
+  }, 3000);
+
+  // ── Nút nhạc ──
+  musicBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    wantsMusic = !wantsMusic;
+    localStorage.setItem(CK_MUSIC_ON, wantsMusic ? '1' : '0');
+    updateBtnUI();
+    
+    if(wantsMusic){
+      playAttempted = false;
+      tryPlay();
+    } else {
+      audio.pause();
+      removeListeners();
+    }
+  });
+
+  // ── KHỞI CHẠY: thử phát ngay nếu đã có URL ──
+  if(wantsMusic && musicUrlSet){
+    tryPlay();
+  }
+
+  // ── Dự phòng: sau 2s nếu chưa phát, gắn listeners ──
+  setTimeout(function(){
+    if(!playAttempted && wantsMusic && musicUrlSet){
+      attachListeners();
+    }
+  }, 2000);
+
+  // ── Khi quay lại tab ──
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden && wantsMusic && audio.paused && musicUrlSet){
+      playAttempted = false;
+      tryPlay();
+    }
+  });
+
 })();

@@ -72,20 +72,25 @@ function initNavScroll(){
 
 function renderBarUser(){
   const area=document.getElementById('bar-user-area');
+  const guideArea=document.getElementById('bar-guide-area');
+  if(!S.session){
+    if(area) area.innerHTML='';
+    if(guideArea) guideArea.innerHTML='';
+    return;
+  }
+  // Nút hướng dẫn — chỉ hiện cho leader và member (giữ nguyên, không phụ thuộc header user-info)
+  if(guideArea){
+    guideArea.innerHTML=(isLeader()||isMember())
+      ?`<button class="bar-user" onclick="openGuide()" title="Hướng dẫn sử dụng" style="font-size:.82rem">❓ Hướng dẫn</button>`
+      :'';
+  }
   if(!area) return;
-  if(!S.session){area.innerHTML='';return;}
+  // Thành viên/Quản lý: dùng Dashboard làm trang chính, đã có nút Đăng xuất riêng trong card
+  // → Header không cần hiện icon/tên/nút logout nữa (tránh trùng lặp UI).
+  if(isMember()||isLeader()){area.innerHTML='';return;}
   const icons={admin:'🔓',leader:'🏆',member:'🌸'};
   const icon=icons[S.session.role]||'👤';
   area.innerHTML=`<div class="bar-user" onclick="doLogout()" title="Nhấn để đăng xuất">${icon} <span>${esc(S.session.displayName)}</span> <span style="opacity:.5;font-size:.65rem">✕</span></div>`;
-  // Nút hướng dẫn — chỉ hiện cho leader và member
-  const guideArea=document.getElementById('bar-guide-area');
-  if(guideArea){
-    if(isLeader()||isMember()){
-      guideArea.innerHTML=`<button class="bar-user" onclick="openGuide()" title="Hướng dẫn sử dụng" style="font-size:.82rem">❓ Hướng dẫn</button>`;
-    } else {
-      guideArea.innerHTML='';
-    }
-  }
 }
 
 // Banner thông báo hệ thống — nhỏ, nền mờ nhạt, không phải popup, không gây khó chịu.
@@ -118,7 +123,7 @@ window.openGuide=function(){
 
   <div style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:6px">✅ Tick hoa thay cho thành viên</div>
   <div style="font-size:.8rem;color:var(--mist);line-height:1.7;margin-bottom:10px">
-    Vào tab <b>✅ Đánh dấu</b>, chọn tên thành viên trong ô <b>"Tick thay cho thành viên"</b> phía trên. Danh sách hoa sẽ hiển thị đúng trạng thái tick hiện tại của thành viên đó. Tick/bỏ tick hoa rồi bấm <b>💾 Lưu</b> — dữ liệu lưu vào tài khoản của thành viên đó, không phải của bạn.<br>
+    Vào tab <b>✅ Đánh dấu</b>, chọn tên thành viên trong ô <b>"Tick thay cho thành viên"</b> phía trên. Danh sách hoa sẽ hiển thị đúng trạng thái tick hiện tại của thành viên đó. Tick/bỏ tick hoa rồi bấm <b>💾 Lưu</b> — dữ liệu lưu vào tài khoản của thành viên đó, không phải của bạn. Tiện cho những thành viên chưa kịp tự cập nhật.<br>
     <span style="color:var(--clan);font-size:.76rem">💡 Thanh dưới hiện "Lưu cho [Tên thành viên]: X hoa" để nhắc bạn đang lưu cho ai.</span>
   </div>
 

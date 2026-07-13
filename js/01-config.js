@@ -16,6 +16,10 @@ export const CK_SESSION  = 'hv5_session';
 export const CK_CACHE_TS = 'hv5_cache_ts';
 export const CK_DATA     = 'hv5_data_cache';
 export const CACHE_TTL_MS = 5 * 60 * 1000;
+export const CK_MUSIC_ON = 'hv5_music_on';
+
+// ─── NHẠC NỀN ─────────────────────────────────────────────────────────────────
+export const BG_MUSIC_URL = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/mbg.mp3';
 
 // ─── ADMIN + EDGE FUNCTION URLS ──────────────────────────────────────────────
 export const ADMIN_PW_HASH = '67cec4b5d00d79ebebcffdb35234c91c785dca6d03235137aecb44d04011df51';

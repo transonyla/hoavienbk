@@ -1,6 +1,7 @@
 import { S, isAdmin, isLeader, isMember, myClanId, myClanName } from './02-state.js';
 import { esc } from './05-ui-helpers.js';
 import { render } from './06-render.js';
+import { cardMyInfo, cardRareFlowers } from './24-page-dashboard.js';
 
 export function pageMembers(){
   if(!isAdmin()&&!isLeader()&&!isMember()) return `<div class="empty"><div class="empty-icon">🔒</div>Không có quyền xem</div>`;
@@ -26,16 +27,7 @@ export function pageMembers(){
     <div class="sc"><div class="sv">${myMembers.length+myLeaders.length}</div><div class="sl">${clanName?'TV Hội '+clanName:'Thành viên'}</div></div>
     <div class="sc"><div class="sv">${total}</div><div class="sl">Loài hoa</div></div>
     <div class="sc"><div class="sv">${total?Math.round([...myMembers,...myLeaders].reduce((a,m)=>a+(S.ticks[m.id]||[]).length,0)/Math.max(myMembers.length+myLeaders.length,1)):0}</div><div class="sl">TB / người</div></div>
-  </div>
-  ${(isLeader()||isMember()) && myLeaders.length>0 ? `<div class="card" style="margin-bottom:14px;border-left:3px solid var(--clan);background:#faf5ff">
-    <div style="display:flex;align-items:flex-start;gap:9px">
-      <span style="font-size:1.3rem">🏆</span>
-      <div>
-        <div style="font-size:.82rem;font-weight:700;color:var(--clan);margin-bottom:3px">Hội trưởng có thể tick hoa giúp thành viên!</div>
-        <div style="font-size:.78rem;color:#7c3aed99;line-height:1.6">Hội trưởng <strong>${myLeaders.map(l=>esc(l.displayName)).join(', ')}</strong> có thể vào tab <em>✅ Đánh dấu</em>, chọn tên thành viên và tick hoa giúp — tiện cho những ai chưa kịp cập nhật nhé 🌸</div>
-      </div>
-    </div>
-  </div>` : ''}`;
+  </div>`;
 
   // For leader/member/admin view, show leader(s) of the clan first, then members
   const leaderRows = myLeaders.map(l=>{
@@ -70,6 +62,24 @@ export function pageMembers(){
     ?`<div class="empty"><div class="empty-icon">👥</div>Chưa có thành viên</div>`
     :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>#</th><th>Thành viên</th>${isAdmin()?'<th>Hội</th>':''}<th>Sở hữu</th>${isAdmin()?'<th></th>':''}</tr></thead><tbody>
     ${allRows}</tbody></table></div>`;
+
+  // ── Thành Viên/Quản Lý: bố cục kiểu Dashboard ──────────────────────────────
+  if(isMember()||isLeader()){
+    const scopeIds=[...myLeaders.map(l=>l.id),...myMembers.map(m=>m.id)];
+    const ownedIds=new Set();
+    scopeIds.forEach(id=>(S.ticks[id]||[]).forEach(fid=>ownedIds.add(fid)));
+    const headerLine=`<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:4px 2px 14px">
+      <span style="font-size:1.05rem;font-weight:800;color:var(--forest2)">🌷 ${esc(clanName||'')}</span>
+      <span style="font-size:.78rem;color:var(--mist)">${scopeIds.length} thành viên · ${total} hoa</span>
+    </div>`;
+    const membersCard=`<div class="card cn-frame">
+      <div class="card-title">👥 Thành Viên Của Hội</div>
+      ${tableHtml}
+    </div>`;
+    return headerLine+cardMyInfo()+membersCard+cardRareFlowers(scopeIds, ownedIds);
+  }
+
+  // ── Admin: giữ nguyên luồng hiện tại ────────────────────────────────────────
   return clanFilterHtml+statsHtml+`<div class="card">${tableHtml}</div>`;
 }
 window.setMemClan=function(c){
