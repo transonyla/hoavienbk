@@ -100,7 +100,7 @@ window.doLoginLeader=async function(){
       if(clanData?.paused){ clearSession(); toast('Hội của bạn đang tạm dừng. Vui lòng liên hệ Admin.','er'); setPulse(''); render(); return; }
     }
     S.msel=new Set(S.ticks[id]||[]);
-    S.page='members';toast('Chào '+(l?.displayName||u)+' 🏆');
+    S.page='flowers';toast('Chào '+(l?.displayName||u)+' 🏆');
     // Ghi lần đăng nhập cuối (fire-and-forget, không chờ) để không delay render
     writeLastLogin(id, u, l?.displayName||u, 'leader', signInData?.session?.access_token);
     render();
@@ -132,7 +132,7 @@ window.doLoginMember=async function(){
       if(clanData?.paused){ clearSession(); toast('Hội của bạn đang tạm dừng. Vui lòng liên hệ Admin.','er'); setPulse(''); render(); return; }
     }
     S.msel=new Set(S.ticks[id]||[]);
-    S.page='members';toast('Chào '+(m?.displayName||u)+' 🌸');
+    S.page='flowers';toast('Chào '+(m?.displayName||u)+' 🌸');
     // Ghi lần đăng nhập cuối (fire-and-forget, không chờ) để không delay render
     writeLastLogin(id, u, m?.displayName||u, 'member', signInData?.session?.access_token);
     render();
