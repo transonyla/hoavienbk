@@ -1,6 +1,6 @@
 import { col } from './01-config.js';
 import { S } from './02-state.js';
-import { esc } from './05-ui-helpers.js';
+import { esc, openModal } from './05-ui-helpers.js';
 import { render } from './06-render.js';
 
 (function(){
@@ -11,10 +11,10 @@ import { render } from './06-render.js';
 /* ── Sub-tab ── */
 .rank-tabs{display:flex;gap:8px;margin-bottom:18px}
 .rank-tab{
-  flex:1;padding:10px 12px;border-radius:var(--rp);font-size:.84rem;font-weight:700;
+  flex:1;padding:9px 6px;border-radius:var(--rp);font-size:.74rem;font-weight:700;
   border:2px solid var(--bd);background:var(--white);color:var(--mist);
   cursor:pointer;transition:all .14s;text-align:center;font-family:inherit;
-  display:flex;align-items:center;justify-content:center;gap:7px;
+  display:flex;align-items:center;justify-content:center;line-height:1.25;
 }
 .rank-tab:hover{border-color:var(--leaf);color:var(--ink)}
 .rank-tab.on{color:#fff;border-color:transparent;box-shadow:0 3px 12px rgba(0,0,0,.18)}
@@ -161,6 +161,63 @@ function calcRankByColor(colorKey){
   return all.slice(0,10);
 }
 
+// ─── Bách Hoa Bảng — xếp hạng LIÊN HỘI theo tổng hoa Đỏ hồng, hoà thì so tiếp Cam ──
+function clanFlowerCount(clanId, colorKey){
+  const flowerById=new Map(S.flowers.map(f=>[f.id,f]));
+  const ids=[
+    ...S.members.filter(m=>m.clanId===clanId).map(m=>m.id),
+    ...S.leaders.filter(l=>l.clanId===clanId).map(l=>l.id)
+  ];
+  return ids.reduce((sum,id)=>sum+(S.ticks[id]||[]).filter(fid=>{
+    const f=flowerById.get(fid);
+    return f && f.color===colorKey;
+  }).length, 0);
+}
+function calcClanRank(){
+  const totalDo=S.flowers.filter(f=>f.color==='do').length;
+  const totalCam=S.flowers.filter(f=>f.color==='cam').length;
+  const all=S.clans.map(c=>{
+    const memberCount=S.members.filter(m=>m.clanId===c.id).length+S.leaders.filter(l=>l.clanId===c.id).length;
+    const doCnt=clanFlowerCount(c.id,'do');
+    const camCnt=clanFlowerCount(c.id,'cam');
+    // % sở hữu trung bình trên đầu người — công bằng giữa hội đông/ít thành viên
+    const doPct=(memberCount&&totalDo)?doCnt/(memberCount*totalDo)*100:0;
+    const camPct=(memberCount&&totalCam)?camCnt/(memberCount*totalCam)*100:0;
+    return {id:c.id, name:c.name, doCnt, camCnt, doPct, camPct, memberCount};
+  });
+  all.sort((a,b)=>
+    b.doPct-a.doPct ||
+    b.camPct-a.camPct ||
+    a.id.localeCompare(b.id)
+  );
+  return all.filter(c=>c.doCnt>0||c.camCnt>0).slice(0,10);
+}
+window.openClanRankDetail=function(clanId){
+  const clan=S.clans.find(c=>c.id===clanId);
+  if(!clan) return;
+  const totalDo=S.flowers.filter(f=>f.color==='do').length;
+  const flowerById=new Map(S.flowers.map(f=>[f.id,f]));
+  const people=[
+    ...S.leaders.filter(l=>l.clanId===clanId).map(l=>({...l,role:'leader'})),
+    ...S.members.filter(m=>m.clanId===clanId).map(m=>({...m,role:'member'}))
+  ].map(p=>({...p, doCnt:(S.ticks[p.id]||[]).filter(fid=>{const f=flowerById.get(fid);return f&&f.color==='do';}).length}))
+   .sort((a,b)=>b.doCnt-a.doCnt);
+  const rows=people.map(p=>{
+    const pct=totalDo?Math.round(p.doCnt/totalDo*100):0;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd)">
+      <span style="font-size:.8rem;font-weight:700;color:var(--ink);flex:1">${p.role==='leader'?'🏆 ':'🌸 '}${esc(p.displayName)}</span>
+      <div class="mbar-w"><div class="mbar"><div class="mbar-f" style="width:${pct}%;background:linear-gradient(90deg,#e91e8c,#c8547a)"></div></div><span class="mlbl">${p.doCnt}/${totalDo}</span></div>
+    </div>`;
+  }).join('');
+  const mbox=document.querySelector('#modal .mbox');
+  if(mbox) mbox.style.position='relative';
+  openModal(
+    `<button class="mf-close" onclick="closeModal()">✕</button>🏅 ${esc(clan.name)}`,
+    `<div style="font-size:.78rem;color:var(--mist);margin-bottom:12px">${people.length} thành viên · Tiến độ hoa Đỏ hồng</div>${rows||`<div class="empty" style="padding:14px 0"><div class="empty-icon">🌿</div>Chưa có dữ liệu</div>`}`,
+    ''
+  );
+};
+
 function renderPodium(top3, colorHex){
   if(!top3.length) return `<div class="empty" style="padding:24px 0"><div class="empty-icon">📊</div>Chưa có dữ liệu</div>`;
   const cls=['rnk-gold','rnk-silver','rnk-bronze'];
@@ -193,6 +250,25 @@ function renderRankList(ranked, colorHex){
   return `<div class="rank-list">${rows}</div>`;
 }
 
+function renderClanPodium(top3){
+  if(!top3.length) return `<div class="empty" style="padding:24px 0"><div class="empty-icon">📊</div>Chưa có dữ liệu</div>`;
+  const cls=['rnk-gold','rnk-silver','rnk-bronze'];
+  const medals=['🥇','🥈','🥉'];
+  const order=[1,0,2];
+  const cards=order.map(i=>{
+    const c=top3[i];
+    if(!c) return '<div style="flex:1;max-width:128px"></div>';
+    return `<div class="rnk-card ${cls[i]}" onclick="openClanRankDetail('${esc(c.id)}')">
+      <div class="rnk-face">
+        <div class="rnk-name">${esc(c.name)}</div>
+        <div class="rnk-cnt">🌸 ${c.doPct.toFixed(1)}%</div>
+      </div>
+      <div class="rnk-plinth">${medals[i]}</div>
+    </div>`;
+  }).join('');
+  return `<div class="podium">${cards}</div>`;
+}
+
 window.setRankTab=function(k){
   S._rankTab=k;
   render();
@@ -200,19 +276,17 @@ window.setRankTab=function(k){
 export function pageRank(){
   if(!S._rankTab) S._rankTab='do';
   const colorKey=S._rankTab;
-  const cv=col(colorKey);
-  const ranked=calcRankByColor(colorKey);
+  const isClanTab=colorKey==='clan';
+  const cv=isClanTab?{h:'#c8547a'}:col(colorKey);
+  const ranked=isClanTab?[]:calcRankByColor(colorKey);
+  const clanRanked=isClanTab?calcClanRank():[];
 
-  // Thứ tự: đỏ trước, cam sau
-  const subTabs=['do','cam'].map(k=>{
-    const c=col(k);
+  const RANK_LABELS={do:'Hồng Diễm Bảng', cam:'Đan Cam Bảng', clan:'Bách Hoa Bảng'};
+  const subTabs=['do','cam','clan'].map(k=>{
     const on=S._rankTab===k;
-    const bg=k==='do'?'#e91e8c':'#f97316';
-    return `<button class="rank-tab ${on?'on':''}"
-      onclick="setRankTab('${k}')"
-      style="${on?`background:${bg};border-color:${bg}`:''}">
-      <span class="rank-dot" style="background:${c.h}${on?';box-shadow:0 0 0 2px rgba(255,255,255,.5)':''}"></span>
-      Bảng hạng ${c.sl}
+    const bg=k==='do'?'#e91e8c':k==='cam'?'#f97316':'#a8487a';
+    return `<button class="rank-tab ${on?'on':''}" style="${on?`background:${bg};border-color:${bg}`:''}" onclick="setRankTab('${k}')">
+      ${RANK_LABELS[k]}
     </button>`;
   }).join('');
 
@@ -231,12 +305,13 @@ export function pageRank(){
         <line x1="24" y1="13" x2="216" y2="13" stroke="#b8892a" stroke-width=".8" opacity=".5"/>
         <line x1="24" y1="39" x2="216" y2="39" stroke="#b8892a" stroke-width=".8" opacity=".5"/>
       </svg>
-      <div class="card-title" style="justify-content:center;position:relative;z-index:1">🏆 Bảng Xếp Hạng 🏆</div>
+      <div class="card-title" style="justify-content:center;position:relative;z-index:1">🏆 ${RANK_LABELS[colorKey]} 🏆</div>
     </div>
     <div class="rank-tabs">${subTabs}</div>
-    ${renderPodium(ranked.slice(0,3), cv.h)}
-    ${renderRankList(ranked, cv.h)}
-    ${ranked.length?`<div style="font-size:.68rem;color:var(--mist);text-align:center;margin-top:14px;opacity:.7">
-      💡 Nhấn tên để xem chi tiết hoa của thành viên</div>`:''}
+    ${isClanTab
+      ? renderClanPodium(clanRanked.slice(0,3))
+      : renderPodium(ranked.slice(0,3), cv.h)+renderRankList(ranked, cv.h)}
+    ${(isClanTab?clanRanked.length:ranked.length)?`<div style="font-size:.68rem;color:var(--mist);text-align:center;margin-top:14px;opacity:.7">
+      💡 Nhấn ${isClanTab?'tên hội':'tên'} để xem chi tiết ${isClanTab?'tiến độ':'hoa'}</div>`:''}
   </div>`;
 }
