@@ -2,6 +2,20 @@ import { col } from './01-config.js';
 import { S } from './02-state.js';
 import { esc, openModal } from './05-ui-helpers.js';
 import { render } from './06-render.js';
+import { initRankFrameCache } from './03-image-cache.js';
+
+// Ảnh khung hoa cho bục hạng 1/2/3 — 3 URL gốc này giờ chỉ còn dùng làm
+// fallback trong CSS (var(--rank-frame-x, url(...))) cho lần đầu tiên khi
+// IndexedDB chưa kịp cache xong. Sau khi cache xong, initRankFrameCache()
+// (03-image-cache.js) sẽ ghi đè bằng bản base64, không phải request CDN nữa.
+const RANK_FRAME_GOLD   = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-1.webp';
+const RANK_FRAME_SILVER = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-2.webp';
+const RANK_FRAME_BRONZE = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-3.webp';
+
+// Không await: chạy ngầm giống initCornerFrameCache() ở main.js, không chặn
+// render đầu tiên. Card vẫn hiện khung ngay nhờ fallback url() trong CSS,
+// hàm này chỉ ghi đè bằng bản base64 từ cache khi có.
+initRankFrameCache();
 
 (function(){
   if(document.getElementById('rank-css')) return;
@@ -21,110 +35,78 @@ import { render } from './06-render.js';
 .rank-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 
 /* ── Podium: top2 trái | top1 giữa cao nhất | top3 phải ── */
-.podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin-bottom:28px;padding:8px 4px 0}
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:2px;margin-bottom:22px;padding:8px 2px 0}
 
-.rnk-card{display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1);flex:1;max-width:128px;position:relative}
+.rnk-card{display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1);flex:1;position:relative}
 .rnk-card:hover{transform:translateY(-6px)}
 .rnk-card:active{transform:translateY(-2px)}
 
 /* Hào quang tỏa sáng cho top 1 */
 .rnk-gold::before{
-  content:'✨';position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+  content:'✨';position:absolute;top:-14px;left:50%;transform:translateX(-50%);
   font-size:1.3rem;animation:crown-bounce 2s ease-in-out infinite;
   filter:drop-shadow(0 0 6px #ffd700);z-index:5;
 }
 @keyframes crown-bounce{0%,100%{transform:translateX(-50%) translateY(0) scale(1)}50%{transform:translateX(-50%) translateY(-5px) scale(1.12)}}
 
-/* Khung tên — nâng cấp */
-.rnk-face{
-  width:100%;border-radius:18px;padding:14px 10px 11px;
-  display:flex;flex-direction:column;align-items:center;gap:7px;
-  position:relative;overflow:hidden;border:2.5px solid transparent;
+/* Khung hoa (ảnh) — thay hẳn cho rnk-face + rnk-plinth vẽ bằng CSS/SVG.
+   Mỗi ảnh đã có sẵn khung hoa + bục + số hạng (1/2/3), chỉ cần đặt làm nền
+   và canh tên/số lượng vào đúng ô trống bên trong khung. */
+.rnk-frame{
+  position:relative;width:100%;
+  background-repeat:no-repeat;background-position:center top;background-size:contain;
+  aspect-ratio:640/533;
 }
-/* shimmer sweep */
-.rnk-face::before{
-  content:'';position:absolute;inset:0;border-radius:inherit;
-  background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);
-  background-size:200% 100%;
-  animation:shimmer 3.2s ease-in-out infinite;
-  pointer-events:none;z-index:2;
-}
-.rnk-face::after{
-  content:'';position:absolute;inset:0;border-radius:inherit;
-  background:linear-gradient(180deg,rgba(255,255,255,.6) 0%,rgba(255,255,255,.1) 40%,transparent 60%);
-  pointer-events:none;z-index:1;
-}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.rnk-gold .rnk-frame{background-image:var(--rank-frame-gold, url('${RANK_FRAME_GOLD}'));width:118%;margin:0 -9%}
+.rnk-silver .rnk-frame{background-image:var(--rank-frame-silver, url('${RANK_FRAME_SILVER}'));width:96%}
+.rnk-bronze .rnk-frame{background-image:var(--rank-frame-bronze, url('${RANK_FRAME_BRONZE}'));width:88%}
 
-.rnk-name{font-size:.8rem;font-weight:800;text-align:center;line-height:1.3;font-family:'Noto Serif SC',serif;word-break:break-word;position:relative;z-index:3}
-.rnk-cnt{font-size:.7rem;font-weight:800;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.15);position:relative;z-index:3;backdrop-filter:blur(2px)}
-
-/* Bục vinh quang — 3D depth */
-.rnk-plinth{
-  width:100%;border-radius:10px 10px 5px 5px;
-  display:flex;align-items:center;justify-content:center;
-  border-top:3px solid rgba(255,255,255,.6);
-  font-size:1.15rem;font-weight:900;
-  font-family:'Noto Serif SC',serif;
-  position:relative;
+/* Ô trống bên trong khung hoa — tên + 🌸 số lượng, canh giữa. Tên "nổi bật"
+   qua text-shadow/letter-spacing (KHÔNG tăng cỡ chữ) để không đụng khung ảnh;
+   --nlen (số ký tự tên, set inline theo từng thẻ) dùng để tự co cỡ chữ khi tên dài. */
+.rnk-win{
+  position:absolute;left:6%;right:6%;top:16%;height:38%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:0 1%;
 }
-/* Cạnh bên 3D cho bục */
-.rnk-plinth::after{
-  content:'';position:absolute;bottom:-5px;left:4px;right:4px;height:5px;
-  border-radius:0 0 5px 5px;
-  filter:brightness(.6);
+.rnk-name{
+  font-size:clamp(.58em, calc(.84em - var(--nlen,6) * 0.014em), .74em);
+  font-weight:800;line-height:1.16;font-family:'Noto Serif SC',serif;color:var(--ink);
+  letter-spacing:.2px;
+  text-shadow:0 1px 0 rgba(255,255,255,.9),0 1px 2px rgba(255,255,255,.9),0 0 6px rgba(255,255,255,.7);
+  overflow-wrap:anywhere;word-break:break-word;
+  display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
 }
-.rnk-gold .rnk-plinth::after{background:#a87200}
-.rnk-silver .rnk-plinth::after{background:#666}
-.rnk-bronze .rnk-plinth::after{background:#6b3510}
-
-/* VÀNG — top 1, bục cao 72px, glow rực rỡ */
-.rnk-gold .rnk-face{
-  background:linear-gradient(145deg,#fffde0,#ffe97a 35%,#ffc200 65%,#ffe799);
-  border-color:#f0cc00;color:#5a3a00;
-  box-shadow:
-    0 0 0 3px rgba(255,220,0,.25),
-    0 8px 28px rgba(200,150,0,.6),
-    inset 0 1px 0 rgba(255,255,255,.9);
+/* Tên lấp lánh theo hạng: gradient sáng + viền tối bao quanh chữ (text-stroke)
+   để tên luôn nổi rõ trên nền khung hoa sáng màu, không còn bị "ẩn thân". */
+.rnk-gold .rnk-name{
+  font-size:clamp(.72em, calc(1em - var(--nlen,6) * 0.014em), .94em);
+  background:linear-gradient(90deg,#a86a00 0%,#ffb300 22%,#fff3c4 42%,#ffdd55 58%,#a86a00 78%,#ffb300 100%);
+  background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+  -webkit-text-stroke:.6px rgba(94,58,0,.55);
+  animation:rnk-shine 3.6s linear infinite;
+  filter:drop-shadow(0 1px 1px rgba(70,42,0,.55)) drop-shadow(0 0 5px rgba(255,214,110,.65));
 }
-.rnk-gold .rnk-plinth{
-  background:linear-gradient(180deg,#ffe566 0%,#f0a500 50%,#b87800 100%);
-  color:#fff8d0;height:72px;
-  box-shadow:0 8px 22px rgba(180,130,0,.6),inset 0 2px 0 rgba(255,255,255,.4);
-  text-shadow:0 1px 5px rgba(0,0,0,.5),0 0 16px rgba(255,230,60,1);
+.rnk-silver .rnk-name{
+  background:linear-gradient(90deg,#4c5359 0%,#8b95a0 22%,#ffffff 42%,#c7ced4 58%,#4c5359 78%,#8b95a0 100%);
+  background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+  -webkit-text-stroke:.6px rgba(45,50,55,.5);
+  animation:rnk-shine 3.6s linear infinite;
+  filter:drop-shadow(0 1px 1px rgba(40,44,48,.5)) drop-shadow(0 0 5px rgba(255,255,255,.7));
 }
-
-/* BẠC — top 2, bục cao 50px */
-.rnk-silver .rnk-face{
-  background:linear-gradient(145deg,#ffffff,#ebebeb 35%,#c8c8c8 65%,#eaeaea);
-  border-color:#b0b0b0;color:#222;
-  box-shadow:
-    0 0 0 3px rgba(180,180,180,.2),
-    0 6px 20px rgba(100,100,100,.42),
-    inset 0 1px 0 rgba(255,255,255,1);
+.rnk-bronze .rnk-name{
+  background:linear-gradient(90deg,#6e3a10 0%,#c9752f 22%,#ffcf9c 42%,#e0954a 58%,#6e3a10 78%,#c9752f 100%);
+  background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+  -webkit-text-stroke:.6px rgba(66,32,8,.55);
+  animation:rnk-shine 3.6s linear infinite;
+  filter:drop-shadow(0 1px 1px rgba(60,28,4,.55)) drop-shadow(0 0 5px rgba(255,197,140,.65));
 }
-.rnk-silver .rnk-plinth{
-  background:linear-gradient(180deg,#e8e8e8 0%,#a0a0a0 50%,#707070 100%);
-  color:#fff;height:50px;
-  box-shadow:0 6px 15px rgba(100,100,100,.5),inset 0 2px 0 rgba(255,255,255,.45);
-  text-shadow:0 1px 4px rgba(0,0,0,.55);
-}
-
-/* ĐỒNG — top 3, bục cao 34px */
-.rnk-bronze .rnk-face{
-  background:linear-gradient(145deg,#fff3e6,#f0b470 35%,#c06818 65%,#f0c880);
-  border-color:#c87828;color:#3a1000;
-  box-shadow:
-    0 0 0 3px rgba(200,120,40,.18),
-    0 5px 18px rgba(140,70,15,.42),
-    inset 0 1px 0 rgba(255,255,255,.75);
-}
-.rnk-bronze .rnk-plinth{
-  background:linear-gradient(180deg,#eda060 0%,#c06020 50%,#7a3010 100%);
-  color:#fff0e0;height:34px;
-  box-shadow:0 5px 13px rgba(140,70,15,.5),inset 0 2px 0 rgba(255,255,255,.3);
-  text-shadow:0 1px 4px rgba(0,0,0,.5);
-}
+@keyframes rnk-shine{0%{background-position:180% center}100%{background-position:-30% center}}
+/* Icon hoa + số lượng đặt dưới chân khung, không đè lên tên nữa */
+.rnk-cnt{margin-top:6px;font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:999px;background:rgba(168,72,122,.14);color:#a8487a;line-height:1.4;white-space:nowrap}
+.rnk-gold .rnk-cnt{font-size:.72rem;background:rgba(200,150,10,.16);color:#a8730a}
+.rnk-silver .rnk-cnt{background:rgba(100,110,120,.14);color:#5c6368}
+.rnk-bronze .rnk-cnt{background:rgba(150,90,30,.16);color:#8b5a2b}
 
 /* ── Hàng top 4-10 ── */
 .rank-list{display:flex;flex-direction:column;gap:6px}
@@ -221,19 +203,19 @@ window.openClanRankDetail=function(clanId){
 function renderPodium(top3, colorHex){
   if(!top3.length) return `<div class="empty" style="padding:24px 0"><div class="empty-icon">📊</div>Chưa có dữ liệu</div>`;
   const cls=['rnk-gold','rnk-silver','rnk-bronze'];
-  const nums=['①','②','③'];
-  const medals=['🥇','🥈','🥉'];
   // Thứ tự: [1]=trái, [0]=giữa cao nhất, [2]=phải
   const order=[1,0,2];
   const cards=order.map(i=>{
     const u=top3[i];
-    if(!u) return '<div style="flex:1;max-width:128px"></div>';
+    if(!u) return '<div style="flex:1"></div>';
+    const nlen=[...u.name].length;
     return `<div class="rnk-card ${cls[i]}" onclick="openMemberFlowers('${esc(u.id)}','${u.role}')">
-      <div class="rnk-face">
-        <div class="rnk-name">${esc(u.name)}</div>
-        <div class="rnk-cnt">🌸 ${u.cnt}</div>
+      <div class="rnk-frame">
+        <div class="rnk-win">
+          <div class="rnk-name" style="--nlen:${nlen}">${esc(u.name)}</div>
+        </div>
       </div>
-      <div class="rnk-plinth">${medals[i]}</div>
+      <div class="rnk-cnt">🌸 ${u.cnt}</div>
     </div>`;
   }).join('');
   return `<div class="podium">${cards}</div>`;
@@ -253,17 +235,18 @@ function renderRankList(ranked, colorHex){
 function renderClanPodium(top3){
   if(!top3.length) return `<div class="empty" style="padding:24px 0"><div class="empty-icon">📊</div>Chưa có dữ liệu</div>`;
   const cls=['rnk-gold','rnk-silver','rnk-bronze'];
-  const medals=['🥇','🥈','🥉'];
   const order=[1,0,2];
   const cards=order.map(i=>{
     const c=top3[i];
-    if(!c) return '<div style="flex:1;max-width:128px"></div>';
+    if(!c) return '<div style="flex:1"></div>';
+    const nlen=[...c.name].length;
     return `<div class="rnk-card ${cls[i]}" onclick="openClanRankDetail('${esc(c.id)}')">
-      <div class="rnk-face">
-        <div class="rnk-name">${esc(c.name)}</div>
-        <div class="rnk-cnt">🌸 ${c.doPct.toFixed(1)}%</div>
+      <div class="rnk-frame">
+        <div class="rnk-win">
+          <div class="rnk-name" style="--nlen:${nlen}">${esc(c.name)}</div>
+        </div>
       </div>
-      <div class="rnk-plinth">${medals[i]}</div>
+      <div class="rnk-cnt">🌸 ${c.doPct.toFixed(1)}%</div>
     </div>`;
   }).join('');
   return `<div class="podium">${cards}</div>`;

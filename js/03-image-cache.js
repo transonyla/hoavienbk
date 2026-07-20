@@ -131,12 +131,16 @@ async function fetchAndCacheImage(url){
 // --corner-frame-img → toàn bộ card đọc lại từ 1 biến CSS này, 0 request thêm.
 const CORNER_FRAME_URL = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1784516376219-emaufg97.webp';
 
-export async function initCornerFrameCache(){
+// ─── Helper dùng CHUNG: cache 1 ảnh nền (background-image, không phải <img>) ──
+// vào IndexedDB (hv5_img_cache) rồi gán base64 vào 1 CSS variable dùng chung
+// cho mọi nơi cần ảnh đó qua background-image:var(--xxx). Dùng cho corner-frame
+// và 3 khung hạng (gold/silver/bronze) ở trang xếp hạng — tránh lặp code.
+async function cacheSingleBgImage(url, cssVarName){
   try {
-    let dataUrl = await imgCacheGet(CORNER_FRAME_URL);
+    let dataUrl = await imgCacheGet(url);
     if(!dataUrl){
       // Cache miss (lần đầu mở web, hoặc IndexedDB bị xoá) — fetch 1 lần duy nhất
-      const res = await fetch(CORNER_FRAME_URL, { mode: 'cors' });
+      const res = await fetch(url, { mode: 'cors' });
       if(!res.ok) throw new Error('not ok');
       const blob = await res.blob();
       dataUrl = await new Promise((resolve, reject) => {
@@ -145,17 +149,38 @@ export async function initCornerFrameCache(){
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-      await imgCacheSet(CORNER_FRAME_URL, dataUrl);
+      await imgCacheSet(url, dataUrl);
     }
-    // Cache hit hoặc fetch xong — gán base64 vào CSS variable dùng chung
-    // cho .fc::before/::after ở style.css. Mọi card đọc lại biến này,
-    // không phải request ảnh riêng lẻ cho từng card.
-    document.documentElement.style.setProperty('--corner-frame-img', `url("${dataUrl}")`);
+    // Cache hit hoặc fetch xong — gán base64 vào CSS variable, mọi nơi
+    // dùng var(--cssVarName, url(...gốc...)) sẽ tự đọc lại, 0 request thêm.
+    document.documentElement.style.setProperty(cssVarName, `url("${dataUrl}")`);
   } catch(e){
     // Fetch lỗi (mất mạng lần đầu...) — im lặng bỏ qua, CSS đã có sẵn
-    // fallback url() gốc trong :root nên card vẫn hiện được góc bình thường,
+    // fallback url() gốc trong var(--xxx, url(...)) nên vẫn hiện bình thường,
     // chỉ là phải tải qua CDN thay vì từ cache.
   }
+}
+
+export async function initCornerFrameCache(){
+  await cacheSingleBgImage(CORNER_FRAME_URL, '--corner-frame-img');
+}
+
+// ─── Ảnh khung hoa cho bục hạng 1/2/3 ở trang xếp hạng ──
+// Trước đây 20-page-rank.js gán url() trực tiếp vào CSS → luôn tải qua CDN.
+// Giờ cache giống corner-frame: tải 1 lần, lưu base64 vào IndexedDB, gán vào
+// 3 CSS variable riêng, trang rank chỉ cần đọc lại qua var(--rank-frame-...).
+const RANK_FRAME_URLS = {
+  gold:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-1.webp',
+  silver: 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-2.webp',
+  bronze: 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-3.webp',
+};
+
+export async function initRankFrameCache(){
+  await Promise.all([
+    cacheSingleBgImage(RANK_FRAME_URLS.gold,   '--rank-frame-gold'),
+    cacheSingleBgImage(RANK_FRAME_URLS.silver, '--rank-frame-silver'),
+    cacheSingleBgImage(RANK_FRAME_URLS.bronze, '--rank-frame-bronze'),
+  ]);
 }
 
 let _imgLazyObserver = null;
