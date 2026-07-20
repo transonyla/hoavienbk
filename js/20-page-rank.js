@@ -71,37 +71,27 @@ initRankFrameCache();
 }
 .rnk-name{
   font-size:clamp(.58em, calc(.84em - var(--nlen,6) * 0.014em), .74em);
-  font-weight:800;line-height:1.16;font-family:'Noto Serif SC',serif;color:var(--ink);
+  font-weight:800;line-height:1.16;font-family:'Noto Serif SC',serif;
   letter-spacing:.2px;
-  text-shadow:0 1px 0 rgba(255,255,255,.9),0 1px 2px rgba(255,255,255,.9),0 0 6px rgba(255,255,255,.7);
   overflow-wrap:anywhere;word-break:break-word;
   display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
 }
-/* Tên lấp lánh theo hạng: gradient sáng + viền tối bao quanh chữ (text-stroke)
-   để tên luôn nổi rõ trên nền khung hoa sáng màu, không còn bị "ẩn thân". */
+/* Tên trong khung top 1/2/3: màu khối ĐẶC trùng tông khung+bục (không dùng
+   chữ trắng/gradient lấp lánh nữa vì lúc gradient quét qua đoạn sáng, tên bị
+   "mờ trắng" khó đọc). Chỉ thêm shadow nhẹ để tách khỏi nền, không viền trắng. */
 .rnk-gold .rnk-name{
   font-size:clamp(.72em, calc(1em - var(--nlen,6) * 0.014em), .94em);
-  background:linear-gradient(90deg,#a86a00 0%,#ffb300 22%,#fff3c4 42%,#ffdd55 58%,#a86a00 78%,#ffb300 100%);
-  background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
-  -webkit-text-stroke:.6px rgba(94,58,0,.55);
-  animation:rnk-shine 3.6s linear infinite;
-  filter:drop-shadow(0 1px 1px rgba(70,42,0,.55)) drop-shadow(0 0 5px rgba(255,214,110,.65));
+  color:#9c6b00;
+  text-shadow:0 1px 0 rgba(255,244,214,.6),0 2px 3px rgba(0,0,0,.18);
 }
 .rnk-silver .rnk-name{
-  background:linear-gradient(90deg,#4c5359 0%,#8b95a0 22%,#ffffff 42%,#c7ced4 58%,#4c5359 78%,#8b95a0 100%);
-  background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
-  -webkit-text-stroke:.6px rgba(45,50,55,.5);
-  animation:rnk-shine 3.6s linear infinite;
-  filter:drop-shadow(0 1px 1px rgba(40,44,48,.5)) drop-shadow(0 0 5px rgba(255,255,255,.7));
+  color:#3d434a;
+  text-shadow:0 1px 0 rgba(255,255,255,.6),0 2px 3px rgba(0,0,0,.15);
 }
 .rnk-bronze .rnk-name{
-  background:linear-gradient(90deg,#6e3a10 0%,#c9752f 22%,#ffcf9c 42%,#e0954a 58%,#6e3a10 78%,#c9752f 100%);
-  background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
-  -webkit-text-stroke:.6px rgba(66,32,8,.55);
-  animation:rnk-shine 3.6s linear infinite;
-  filter:drop-shadow(0 1px 1px rgba(60,28,4,.55)) drop-shadow(0 0 5px rgba(255,197,140,.65));
+  color:#8a3e12;
+  text-shadow:0 1px 0 rgba(255,225,195,.6),0 2px 3px rgba(0,0,0,.18);
 }
-@keyframes rnk-shine{0%{background-position:180% center}100%{background-position:-30% center}}
 /* Icon hoa + số lượng đặt dưới chân khung, không đè lên tên nữa */
 .rnk-cnt{margin-top:6px;font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:999px;background:rgba(168,72,122,.14);color:#a8487a;line-height:1.4;white-space:nowrap}
 .rnk-gold .rnk-cnt{font-size:.72rem;background:rgba(200,150,10,.16);color:#a8730a}
