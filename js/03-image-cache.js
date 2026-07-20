@@ -34,7 +34,7 @@ function openImgCacheDB(){
   return _imgCacheDBPromise;
 }
 
-async function imgCacheGet(url){
+export async function imgCacheGet(url){
   try {
     const db = await openImgCacheDB();
     return await new Promise((resolve) => {
@@ -47,7 +47,7 @@ async function imgCacheGet(url){
   } catch(e){ return null; }
 }
 
-async function imgCacheSet(url, dataUrl){
+export async function imgCacheSet(url, dataUrl){
   try {
     const db = await openImgCacheDB();
     await new Promise((resolve) => {
@@ -123,7 +123,41 @@ async function fetchAndCacheImage(url){
   }
 }
 
-// IntersectionObserver lazy load: chỉ kích hoạt cache/load khi ảnh sắp vào viewport
+// ─── CORNER FRAME IMAGE CACHE — dùng CHUNG IndexedDB (hv5_img_cache) với ảnh hoa ──
+// Khác với ảnh hoa (hàng trăm ảnh khác nhau, cache theo từng <img data-cache-src>),
+// ảnh góc khung chỉ có DUY NHẤT 1 file, dùng chung cho MỌI card qua CSS
+// background-image (không phải <img> riêng lẻ), nên không cần <img>/observer,
+// chỉ cần: tải 1 lần → lưu base64 vào IndexedDB → gán vào CSS variable
+// --corner-frame-img → toàn bộ card đọc lại từ 1 biến CSS này, 0 request thêm.
+const CORNER_FRAME_URL = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1784516376219-emaufg97.webp';
+
+export async function initCornerFrameCache(){
+  try {
+    let dataUrl = await imgCacheGet(CORNER_FRAME_URL);
+    if(!dataUrl){
+      // Cache miss (lần đầu mở web, hoặc IndexedDB bị xoá) — fetch 1 lần duy nhất
+      const res = await fetch(CORNER_FRAME_URL, { mode: 'cors' });
+      if(!res.ok) throw new Error('not ok');
+      const blob = await res.blob();
+      dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      await imgCacheSet(CORNER_FRAME_URL, dataUrl);
+    }
+    // Cache hit hoặc fetch xong — gán base64 vào CSS variable dùng chung
+    // cho .fc::before/::after ở style.css. Mọi card đọc lại biến này,
+    // không phải request ảnh riêng lẻ cho từng card.
+    document.documentElement.style.setProperty('--corner-frame-img', `url("${dataUrl}")`);
+  } catch(e){
+    // Fetch lỗi (mất mạng lần đầu...) — im lặng bỏ qua, CSS đã có sẵn
+    // fallback url() gốc trong :root nên card vẫn hiện được góc bình thường,
+    // chỉ là phải tải qua CDN thay vì từ cache.
+  }
+}
+
 let _imgLazyObserver = null;
 function getImgLazyObserver(){
   if(_imgLazyObserver) return _imgLazyObserver;
