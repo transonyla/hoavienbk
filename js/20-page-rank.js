@@ -8,7 +8,7 @@ import { initRankFrameCache } from './03-image-cache.js';
 // fallback trong CSS (var(--rank-frame-x, url(...))) cho lần đầu tiên khi
 // IndexedDB chưa kịp cache xong. Sau khi cache xong, initRankFrameCache()
 // (03-image-cache.js) sẽ ghi đè bằng bản base64, không phải request CDN nữa.
-const RANK_FRAME_GOLD   = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-1.webp';
+const RANK_FRAME_GOLD   = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-top1.webp';
 const RANK_FRAME_SILVER = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-2.webp';
 const RANK_FRAME_BRONZE = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-3.webp';
 
