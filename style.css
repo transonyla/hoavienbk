@@ -211,7 +211,10 @@ body::before{
 .fc:active{transform:translateY(-1px) scale(.98);transition-duration:80ms}
 .fc:hover{transform:translateY(-3px);box-shadow:var(--shd);border-color:var(--gold2)}
 .fc-img{width:100%;aspect-ratio:1;overflow:hidden;background:linear-gradient(135deg,var(--jade2),var(--blush));position:relative;display:flex;align-items:center;justify-content:center}
-.fc-img::before{ content:none; }
+.fc-img::before{
+  content:'';position:absolute;inset:4px;pointer-events:none;border-radius:10px;
+  border:1px solid rgba(245,207,120,.55);z-index:1;
+}
 .fc-img::after{ content:none; }
 .fc-img img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
 .fc:hover .fc-img img{transform:scale(1.07)}
