@@ -1,4 +1,8 @@
 :root {
+  /* Ảnh góc khung card hoa — mặc định trỏ thẳng CDN, sẽ được
+     initCornerFrameCache() (03-image-cache.js) ghi đè bằng base64
+     từ IndexedDB ngay khi có cache, để lần sau mở web = 0 request mạng */
+  --corner-frame-img:url("https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1784516376219-emaufg97.webp");
   /* ─── Micro-animation tokens ─── */
   --ease-out-quart: cubic-bezier(.25,.46,.45,.94);
   --ease-spring: cubic-bezier(.22,1,.36,1);
@@ -184,26 +188,31 @@ body::before{
   box-shadow:0 2px 8px rgba(168,72,122,.07);
   -webkit-tap-highlight-color:transparent;
 }
+/* ─── Góc hoa văn trang trí card hoa — chỉ góc trên-trái + dưới-phải ───
+   Dùng CHUNG 1 file ảnh duy nhất cho ::before và ::after của MỌI card.
+   Trình duyệt chỉ tải ảnh này 1 LẦN DUY NHẤT (network + cache), sau đó
+   mọi card khác chỉ đọc lại từ cache — không tốn thêm request nào dù
+   trang có bao nhiêu card hoa. Đây là hành vi mặc định của CSS
+   background-image: cùng 1 URL dùng lại ở nhiều nơi = tải 1 lần. */
+.fc::before{
+  content:'';position:absolute;top:-6px;left:-6px;width:52px;height:52px;
+  background-image:var(--corner-frame-img);
+  background-repeat:no-repeat;background-position:center;background-size:contain;
+  pointer-events:none;z-index:5;
+}
+.fc::after{
+  content:'';position:absolute;bottom:-6px;right:-6px;width:52px;height:52px;
+  background-image:var(--corner-frame-img);
+  background-repeat:no-repeat;background-position:center;background-size:contain;
+  transform:scale(-1,-1); /* lật góc trên-trái thành góc dưới-phải, không cần ảnh riêng */
+  pointer-events:none;z-index:5;
+}
 .fc:hover{transform:translateY(-3px);box-shadow:var(--shd);border-color:var(--gold2)}
 .fc:active{transform:translateY(-1px) scale(.98);transition-duration:80ms}
 .fc:hover{transform:translateY(-3px);box-shadow:var(--shd);border-color:var(--gold2)}
 .fc-img{width:100%;aspect-ratio:1;overflow:hidden;background:linear-gradient(135deg,var(--jade2),var(--blush));position:relative;display:flex;align-items:center;justify-content:center}
-.fc-img::before{
-  content:'';position:absolute;inset:4px;pointer-events:none;border-radius:10px;
-  border:1px solid rgba(245,207,120,.55);z-index:1;
-}
-.fc-img::after{
-  content:'';position:absolute;inset:3px;pointer-events:none;z-index:1;border-radius:9px;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Cpath d='M2 9 L2 4 Q2 2 4 2 L9 2' fill='none' stroke='%23e0a93e' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Cg transform='translate(18,0) scale(-1,1)'%3E%3Cpath d='M2 9 L2 4 Q2 2 4 2 L9 2' fill='none' stroke='%23e0a93e' stroke-width='1.8' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Cg transform='translate(0,18) scale(1,-1)'%3E%3Cpath d='M2 9 L2 4 Q2 2 4 2 L9 2' fill='none' stroke='%23e0a93e' stroke-width='1.8' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Cg transform='translate(18,18) scale(-1,-1)'%3E%3Cpath d='M2 9 L2 4 Q2 2 4 2 L9 2' fill='none' stroke='%23e0a93e' stroke-width='1.8' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
-  background-repeat:no-repeat;
-  background-position:top left, top right, bottom left, bottom right;
-  background-size:18px 18px;
-  opacity:.9;
-}
+.fc-img::before{ content:none; }
+.fc-img::after{ content:none; }
 .fc-img img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
 .fc:hover .fc-img img{transform:scale(1.07)}
 .fc-letter{font-size:2.4rem;font-weight:800;line-height:1;font-family:'Noto Serif SC',serif}
@@ -601,6 +610,7 @@ code{background:var(--sage);padding:1px 6px;border-radius:5px;font-size:.82em;co
 .fc-label{
   position:absolute;bottom:7px;right:7px;
   width:32px;height:32px;border-radius:50%;
+  z-index:6;
   display:flex;align-items:center;justify-content:center;
   font-size:.72rem;font-weight:800;color:#fff;
   border:2px solid var(--gold2);
