@@ -165,12 +165,21 @@ export async function initCornerFrameCache(){
   await cacheSingleBgImage(CORNER_FRAME_URL, '--corner-frame-img');
 }
 
+// ─── Chim phượng góc trên-phải của popup phóng to (.zoom-card) ──
+// Cùng cơ chế cache như corner-frame-img: tải 1 lần, lưu IndexedDB,
+// gán vào --zoom-corner-img, popup zoom đọc lại qua CSS variable.
+const ZOOM_CORNER_URL = 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/topright.webp';
+
+export async function initZoomCornerCache(){
+  await cacheSingleBgImage(ZOOM_CORNER_URL, '--zoom-corner-img');
+}
+
 // ─── Ảnh khung hoa cho bục hạng 1/2/3 ở trang xếp hạng ──
 // Trước đây 20-page-rank.js gán url() trực tiếp vào CSS → luôn tải qua CDN.
 // Giờ cache giống corner-frame: tải 1 lần, lưu base64 vào IndexedDB, gán vào
 // 3 CSS variable riêng, trang rank chỉ cần đọc lại qua var(--rank-frame-...).
 const RANK_FRAME_URLS = {
-  gold:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-top1.webp',
+  gold:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-1.webp',
   silver: 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-2.webp',
   bronze: 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-3.webp',
 };

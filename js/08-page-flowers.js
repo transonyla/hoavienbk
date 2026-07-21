@@ -109,7 +109,7 @@ export function pageFlowers(){
     <div class="fg">${flowers.map(f=>{
       const dClans=getDisplayClans(f.id);
       const dMembers=getDisplayMembers(f.id);
-      return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
+      return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')"><div class="fc-phoenix"></div>
         <div class="fc-img">${(fi=>fi?imgTag(fi,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`)(getFlowerImg(f))}${labelBadgeHtml(f)}</div>
         <div class="fc-body">
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>
@@ -181,7 +181,7 @@ function buildFlowerGrid(){
     return `<div class="grp"><div class="grp-bar" style="background:${cv.h}"></div><h2 style="color:${cv.h}">${cv.l}</h2><span class="grp-cnt">${grpLabel}</span></div>
     <div class="fg">${flowers.map(f=>{
       const dC=gClans(f.id);const dM=gMembers(f.id);
-      return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')">
+      return `<div class="fc zoomable" onclick="openFlowerZoom('${f.id}')"><div class="fc-phoenix"></div>
         <div class="fc-img">${(fi=>fi?imgTag(fi,'decoding="async"'):`<span class="fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`)(getFlowerImg(f))}${labelBadgeHtml(f)}</div>
         <div class="fc-body">
           <div class="fc-name" style="color:${cv.h}">${esc(f.name)}</div>

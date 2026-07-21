@@ -2,7 +2,7 @@ import { CK_DATA, sb, BG_MUSIC_URL, CK_MUSIC_ON } from './01-config.js';
 import { S, clearSession, loadSWRCache } from './02-state.js';
 import { loadAll } from './04-api.js';
 import { render } from './06-render.js';
-import { initCornerFrameCache } from './03-image-cache.js';
+import { initCornerFrameCache, initZoomCornerCache } from './03-image-cache.js';
 
 async function init(){
   // Ảnh góc khung card hoa — cache riêng qua IndexedDB (giống ảnh hoa).
@@ -10,6 +10,7 @@ async function init(){
   // góc ngay lập tức nhờ fallback url() trong :root, hàm này chỉ ghi đè
   // bằng bản base64 từ cache khi có, để lần sau mở web = 0 request mạng.
   initCornerFrameCache();
+  initZoomCornerCache();
 
   // SWR: nếu có cache cũ → hydrate S ngay, render lập tức (0 delay)
   const hadCache = S.session && loadSWRCache();
