@@ -179,7 +179,7 @@ export async function initZoomCornerCache(){
 // Giờ cache giống corner-frame: tải 1 lần, lưu base64 vào IndexedDB, gán vào
 // 3 CSS variable riêng, trang rank chỉ cần đọc lại qua var(--rank-frame-...).
 const RANK_FRAME_URLS = {
-  gold:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-1.webp',
+  gold:   'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-top1.webp',
   silver: 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-2.webp',
   bronze: 'https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/rank-frame-3.webp',
 };
