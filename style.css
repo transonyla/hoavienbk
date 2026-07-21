@@ -3,6 +3,10 @@
      initCornerFrameCache() (03-image-cache.js) ghi đè bằng base64
      từ IndexedDB ngay khi có cache, để lần sau mở web = 0 request mạng */
   --corner-frame-img:url("https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/1784516376219-emaufg97.webp");
+  /* Chim phượng góc trên-phải của popup phóng to (.zoom-card) — cùng
+     cơ chế cache IndexedDB với --corner-frame-img ở trên, xem
+     initDecorAssetsCache() trong 03-image-cache.js */
+  --zoom-corner-img:url("https://cdn.jsdelivr.net/gh/transonyla/hoavien-img@main/images/topright.webp");
   /* ─── Micro-animation tokens ─── */
   --ease-out-quart: cubic-bezier(.25,.46,.45,.94);
   --ease-spring: cubic-bezier(.22,1,.36,1);
@@ -209,6 +213,16 @@ body::before{
 }
 .fc:hover{transform:translateY(-3px);box-shadow:var(--shd);border-color:var(--gold2)}
 .fc:active{transform:translateY(-1px) scale(.98);transition-duration:80ms}
+/* Chim phượng góc trên-phải card nhỏ — dùng CHUNG ảnh & cache với
+   .zoom-card (biến --zoom-corner-img), chỉ khác kích thước/vị trí vì
+   card nhỏ hơn nhiều. Là <div> thật (không phải ::before/::after) vì
+   2 pseudo-element của .fc đã dùng hết cho góc hoa mai trên-trái/dưới-phải. */
+.fc-phoenix{
+  position:absolute;top:-10px;right:-6px;width:36px;height:55px;
+  background-image:var(--zoom-corner-img);
+  background-repeat:no-repeat;background-position:center;background-size:contain;
+  pointer-events:none;z-index:5;
+}
 .fc:hover{transform:translateY(-3px);box-shadow:var(--shd);border-color:var(--gold2)}
 .fc-img{width:100%;aspect-ratio:1;overflow:hidden;background:linear-gradient(135deg,var(--jade2),var(--blush));position:relative;display:flex;align-items:center;justify-content:center}
 .fc-img::before{
@@ -263,6 +277,17 @@ body::before{
   cursor:zoom-out;position:relative;border:3px solid var(--gold2);will-change:transform,opacity;
 }
 .zoom-img{border-radius:19px 19px 0 0;overflow:hidden}
+.zoom-card::before{
+  content:'';position:absolute;
+  top:-32px; right:-22px;
+  width:67px; height:103px;
+  background-image:var(--zoom-corner-img);
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:contain;
+  pointer-events:none;
+  z-index:4;
+}
 .zoom-card::after{
   content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:3;
   background-image:
