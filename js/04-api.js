@@ -108,6 +108,23 @@ export async function loadAll(force=false){
         userId:r.user_id, username:r.username,
         displayName:r.display_name||r.username, role:r.role, lastSeen:r.last_seen
       }));
+    } else if(isLeader() && myClanId()){
+      // Leader: chỉ tải đúng 1 dòng rental/trial của hội mình (nếu có), KHÔNG tải toàn bộ bảng
+      // ⚠️ Cần RLS trên Supabase cho phép leader SELECT clan_rentals/clan_trials
+      // có clan_id = clan của mình, nếu chưa có sẽ trả về mảng rỗng (lỗi bị nuốt bởi .catch).
+      const clanId = myClanId();
+      const [rentalsRaw, trialsRaw] = await Promise.all([
+        sb.from('clan_rentals').select('*').eq('clan_id',clanId).then(r=>r.data||[]).catch(()=>[]),
+        sb.from('clan_trials').select('*').eq('clan_id',clanId).then(r=>r.data||[]).catch(()=>[]),
+      ]);
+      S.rentals = rentalsRaw.map(r=>({
+        id:r.id, clanId:r.clan_id, startDate:r.start_date,
+        months:Number(r.months)||1, note:r.note||''
+      }));
+      S.trials = trialsRaw.map(r=>({
+        id:r.id, clanId:r.clan_id, startDate:r.start_date, note:r.note||''
+      }));
+      S.lastLogins=[];
     } else { S.rentals=[]; S.trials=[]; S.lastLogins=[]; }
     // Thông báo hệ thống — tải cho MỌI role đã đăng nhập (admin/leader/member), lỗi không crash app
     try {

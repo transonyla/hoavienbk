@@ -3,6 +3,39 @@ import { S, clearSession, isAdmin, isLeader, myClanId, myClanName } from './02-s
 import { checkHyperPaused, fsDel, fsSet } from './04-api.js';
 import { closeModal, esc, openModal, setPulse, toast } from './05-ui-helpers.js';
 import { render } from './06-render.js';
+import { calcEndDate, calcTrialEndDate, formatDate } from './15-manage-rentals.js';
+
+// Card nhỏ hiển thị trạng thái thuê/dùng thử của hội (chỉ Leader thấy, ở tab Quản lý)
+// Dữ liệu lấy từ S.rentals / S.trials — đã được 04-api.js tải riêng cho Leader
+// (chỉ đúng 1 dòng của hội mình, xem loadAll() nhánh isLeader()).
+// clan_trials không có cột end_date → hạn dùng thử = start_date + 7 ngày (calcTrialEndDate).
+// ⚠️ Cần đảm bảo RLS Supabase cho phép Leader SELECT clan_rentals/clan_trials
+// theo đúng clan_id của mình.
+function cardRentalTrialStatus(){
+  const clanId = myClanId();
+  const rental = (S.rentals||[]).find(r=>r.clanId===clanId);
+  const trial = (S.trials||[]).find(t=>t.clanId===clanId);
+  const clanName = esc(myClanName());
+  let text, icon, borderColor, bgColor;
+  if(rental){
+    const end = calcEndDate(rental.startDate, rental.months);
+    text = `Hội <b>${clanName}</b> đã kích hoạt <b>${rental.months} tháng</b> từ ngày ${formatDate(rental.startDate)} đến ngày ${formatDate(end)}`;
+    icon='🏠'; borderColor='#16a34a'; bgColor='#f0fdf4';
+  } else if(trial){
+    const end = calcTrialEndDate(trial.startDate);
+    text = `Hội <b>${clanName}</b> dùng thử đến ngày ${formatDate(end)}`;
+    icon='⏳'; borderColor='#0ea5e9'; bgColor='#f0f9ff';
+  } else {
+    text = `Hội <b>${clanName}</b> đã kích hoạt vĩnh viễn`;
+    icon='♾️'; borderColor='#8b5cf6'; bgColor='#f5f3ff';
+  }
+  return `<div class="card" style="margin-bottom:14px;border:1.5px solid ${borderColor};background:${bgColor}">
+    <div style="display:flex;align-items:center;gap:10px;font-size:.82rem;line-height:1.6">
+      <span style="font-size:1.3rem;flex-shrink:0">${icon}</span>
+      <div>${text}</div>
+    </div>
+  </div>`;
+}
 
 // ── ALL MEMBERS (ADMIN) ───────────────────────────────────────────────────────
 export function manageAllMembers(){
@@ -146,7 +179,7 @@ export function manageClanMembers(){
       </div>
     </div>
   </div>`;
-  return noteHtml+`<div class="card">
+  return cardRentalTrialStatus()+noteHtml+`<div class="card">
     <div class="card-title">👥 Thành viên Hội ${esc(clanName)} <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${myMembers.length})</span>
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddMember()">+ Thêm TV</button>
     </div>

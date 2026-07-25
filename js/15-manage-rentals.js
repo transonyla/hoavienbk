@@ -3,45 +3,45 @@ import { S, isAdmin } from './02-state.js';
 import { closeModal, esc, openModal, setPulse, toast } from './05-ui-helpers.js';
 import { render } from './06-render.js';
 
+// ─── HELPER DÙNG CHUNG (export để 14-manage-members.js dùng lại) ───────────
+export function formatDate(d){
+  const dt=new Date(d);
+  return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`;
+}
+// Ngày kết thúc = ngày bắt đầu + đúng số tháng thuê (giữ nguyên ngày trong tháng)
+// (vd: bắt đầu 25/07, thuê 3 tháng → kết thúc = 25/10)
+export function calcEndDate(startDate, months){
+  const d = new Date(startDate);
+  d.setMonth(d.getMonth() + Number(months));
+  return d;
+}
+// Dùng thử: thời hạn cố định 7 ngày kể từ ngày bắt đầu (clan_trials không có cột end_date)
+export const TRIAL_DAYS = 7;
+export function calcTrialEndDate(startDate){
+  const d = new Date(startDate);
+  d.setDate(d.getDate() + TRIAL_DAYS);
+  return d;
+}
+export function rentalStatus(startDate, months){
+  const now = new Date();
+  const end = calcEndDate(startDate, months);
+  if(now >= end) return {label:'⏰ Tới kỳ thanh toán', color:'#ef4444', bg:'#fef2f2'};
+  return {label:'✅ Chưa tới kỳ', color:'#16a34a', bg:'#f0fdf4'};
+}
+
 // ─── HỘI ĐÃ THUÊ (ADMIN ONLY) ───────────────────────────────────────────────
 export function manageRentals(){
   if(!isAdmin()) return '';
-  // Tính kỳ thanh toán từ ngày bắt đầu + số tháng thuê
-  function calcPaymentCycles(startDate, months){
-    const start = new Date(startDate);
-    const cycles = [];
-    for(let i=1; i<=months; i++){
-      const d = new Date(start);
-      d.setMonth(d.getMonth() + i);
-      cycles.push(d);
-    }
-    return cycles;
-  }
-  function rentalStatus(startDate, months){
-    const now = new Date();
-    const cycles = calcPaymentCycles(startDate, months);
-    const end = cycles[cycles.length-1];
-    if(now >= end) return {label:'⏰ Tới kỳ thanh toán', color:'#ef4444', bg:'#fef2f2'};
-    // Kiểm tra xem có cycle nào đã tới không (nhưng chưa phải cycle cuối)
-    const reached = cycles.filter(c=>now>=c);
-    if(reached.length>0) return {label:'⏰ Tới kỳ thanh toán', color:'#ef4444', bg:'#fef2f2'};
-    return {label:'✅ Chưa tới kỳ', color:'#16a34a', bg:'#f0fdf4'};
-  }
-  function formatDate(d){
-    const dt=new Date(d);
-    return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`;
-  }
 
   const rows = S.rentals.map(r=>{
     const clan = S.clans.find(c=>c.id===r.clanId);
-    const cycles = calcPaymentCycles(r.startDate, r.months);
+    const end = calcEndDate(r.startDate, r.months);
     const status = rentalStatus(r.startDate, r.months);
-    const cycleStr = cycles.map((c,i)=>`<span style="background:#f3f4f6;border-radius:5px;padding:1px 6px;font-size:.68rem;margin-right:2px">${formatDate(c)}</span>`).join('');
     return `<tr>
       <td><strong>${clan?esc(clan.name):'<span style="color:var(--haze)">—</span>'}</strong></td>
       <td style="font-size:.78rem">${formatDate(r.startDate)}</td>
       <td style="font-size:.78rem">${r.months} tháng</td>
-      <td style="font-size:.72rem;line-height:1.8">${cycleStr}</td>
+      <td style="font-size:.72rem"><span style="background:#f3f4f6;border-radius:5px;padding:2px 7px">${formatDate(end)}</span></td>
       <td><span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:${status.bg};color:${status.color}">${status.label}</span></td>
       <td style="white-space:nowrap">
         <button class="ibtn" onclick="openEditRental('${r.id}')">✏️</button>
@@ -55,7 +55,7 @@ export function manageRentals(){
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddRental()">+ Thêm</button>
     </div>
     <div style="font-size:.75rem;color:var(--mist);margin-bottom:12px;line-height:1.6">
-      📌 Kỳ thanh toán = ngày thuê / tháng thuê + X tháng / năm. Trạng thái chuyển <b style="color:#ef4444">Tới kỳ thanh toán</b> khi đến hạn kỳ gần nhất.
+      📌 Kỳ thanh toán = ngày bắt đầu thuê + đúng số tháng thuê. Trạng thái chuyển <b style="color:#ef4444">Tới kỳ thanh toán</b> khi đến/qua ngày đó.
     </div>
     ${S.rentals.length===0
       ?`<div class="empty"><div class="empty-icon">🏠</div>Chưa có hội nào được thuê</div>`
@@ -80,11 +80,7 @@ window.openAddRental=function(){
       </div>
       <div class="fg-col"><label class="fl">Thời hạn thuê *</label>
         <select class="fi" id="rt-months">
-          <option value="1">1 tháng</option>
-          <option value="2">2 tháng</option>
-          <option value="3">3 tháng</option>
-          <option value="6">6 tháng</option>
-          <option value="12">12 tháng</option>
+          ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} tháng</option>`).join('')}
         </select>
       </div>
       <div class="fg-col"><label class="fl">Ghi chú</label>
@@ -129,7 +125,7 @@ window.openEditRental=function(id){
       </div>
       <div class="fg-col"><label class="fl">Thời hạn thuê *</label>
         <select class="fi" id="rt-months">
-          ${[1,2,3,6,12].map(m=>`<option value="${m}" ${m===r.months?'selected':''}>${m} tháng</option>`).join('')}
+          ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}" ${m===r.months?'selected':''}>${m} tháng</option>`).join('')}
         </select>
       </div>
       <div class="fg-col"><label class="fl">Ghi chú</label>
