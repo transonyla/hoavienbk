@@ -164,7 +164,7 @@ export function manageClanMembers(){
   const clanName=myClanName();
   const myMembers=S.members.filter(m=>m.clanId===clanId);
   const rows=myMembers.map(m=>`<tr>
-    <td><strong>${esc(m.displayName)}</strong>${m.alias?`<span style="font-size:.74rem;color:var(--mist);margin-left:6px">${esc(m.alias)}</span>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
+    <td><strong>${esc(m.displayName)}</strong>${m.isDeputy?`<span style="font-size:.68rem;font-weight:700;background:#ede9fe;color:var(--clan);padding:1px 7px;border-radius:99px;margin-left:6px">🎖️ Hội phó</span>`:''}${m.alias?`<span style="font-size:.74rem;color:var(--mist);margin-left:6px">${esc(m.alias)}</span>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
     <td style="font-size:.78rem;color:var(--mist)">${m.year||'—'}</td>
     <td style="font-size:.78rem;color:var(--mist)">${(S.ticks[m.id]||[]).length} hoa</td>
     <td style="font-size:.78rem"><code style="background:var(--sage);padding:2px 6px;border-radius:6px;user-select:all">${esc(m.password||'—')}</code></td>
@@ -201,6 +201,12 @@ window.openAddMember=function(){
       <div class="fg-col"><label class="fl">Mật khẩu *</label><input class="fi" id="am-p" type="password" placeholder="••••••"></div>
       <div class="fg-col"><label class="fl">Tên game / bí danh</label><input class="fi" id="am-a" placeholder="Mẫn"></div>
       <div class="fg-col"><label class="fl">Năm sinh</label><input class="fi" id="am-y" placeholder="1991" maxlength="4" type="number"></div>
+      <div class="fg-col"><label class="fl">Vai trò</label>
+        <select class="fi" id="am-role">
+          <option value="member">Thành viên</option>
+          <option value="deputy">🎖️ Hội phó (được tick hoa giúp thành viên)</option>
+        </select>
+      </div>
       ${clanSelect}
     </div>`,
     `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doAddMember()">Thêm</button>`
@@ -213,6 +219,7 @@ window.doAddMember=async function(){
   const a=document.getElementById('am-a')?.value.trim()||'';
   const y=document.getElementById('am-y')?.value.trim()||'';
   const cl=document.getElementById('am-cl')?.value;
+  const isDep=document.getElementById('am-role')?.value==='deputy';
   if(!d||!u||!p){toast('Điền đủ thông tin bắt buộc!','wn');return;}
   if(!cl){toast('Chọn Hội!','wn');return;}
   if(S.members.find(m=>m.username===u)){toast('Username đã tồn tại!','wn');return;}
@@ -230,7 +237,7 @@ window.doAddMember=async function(){
       }
     }
     const newId='mb'+Date.now();
-    await fsSet('members',newId,{username:u,password:p,displayName:d,alias:a,year:y,clanId:cl,leaderId});
+    await fsSet('members',newId,{username:u,password:p,displayName:d,alias:a,year:y,clanId:cl,leaderId,isDeputy:isDep});
     // Tạo Auth user song song qua Edge Function (cần JWT hiện tại của admin/leader)
     const { data: sessData } = await sb.auth.getSession();
     const jwt = sessData?.session?.access_token;
@@ -249,7 +256,7 @@ window.doAddMember=async function(){
       setPulse('');
       return;
     }
-    S.members.push({id:newId,username:u,password:p,clanId:cl,leaderId,displayName:d,alias:a,year:y});
+    S.members.push({id:newId,username:u,password:p,clanId:cl,leaderId,displayName:d,alias:a,year:y,isDeputy:isDep});
     closeModal();toast('Đã thêm: '+d);
     render();
   } catch(e){
@@ -258,7 +265,7 @@ window.doAddMember=async function(){
   }
   setPulse('');
 };
-// ── EDIT MEMBER (LEADER) — chỉ sửa tên hiển thị + mật khẩu, giới hạn cùng clanId ──
+// ── EDIT MEMBER (LEADER) — sửa tên hiển thị + mật khẩu + vai trò, giới hạn cùng clanId ──
 window.openEditMemberLeader=function(id){
   const clanId = myClanId();
   const m = S.members.find(x=>x.id===id && x.clanId===clanId);
@@ -270,6 +277,12 @@ window.openEditMemberLeader=function(id){
         <input class="fi" id="elm-p" type="text" placeholder="Nhập mật khẩu mới...">
         <div style="font-size:.72rem;color:var(--mist);margin-top:4px">Hiện tại: <code style="background:var(--sage);padding:2px 6px;border-radius:6px">${esc(m.password||'(trống)')}</code></div>
       </div>
+      <div class="fg-col"><label class="fl">Vai trò</label>
+        <select class="fi" id="elm-role">
+          <option value="member" ${!m.isDeputy?'selected':''}>Thành viên</option>
+          <option value="deputy" ${m.isDeputy?'selected':''}>🎖️ Hội phó (được tick hoa giúp thành viên)</option>
+        </select>
+      </div>
     </div>`,
     `<button class="btn btn-o" onclick="closeModal()">Hủy</button><button class="btn btn-g" onclick="doEditMemberLeader('${id}')">💾 Lưu</button>`
   );
@@ -280,6 +293,7 @@ window.doEditMemberLeader=async function(id){
   if(!m){toast('Không tìm thấy hoặc không có quyền!','er');return;}
   const d = document.getElementById('elm-d')?.value.trim();
   const newPw = document.getElementById('elm-p')?.value;
+  const isDep = document.getElementById('elm-role')?.value==='deputy';
   if(!d){toast('Nhập tên hiển thị!','wn');return;}
   const btn=document.querySelector('.mbox .btn-g');
   if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
@@ -288,10 +302,11 @@ window.doEditMemberLeader=async function(id){
     const updateData = {
       username:m.username, displayName:d, clanId:m.clanId,
       leaderId:m.leaderId, alias:m.alias, year:m.year,
-      password: newPw||m.password
+      password: newPw||m.password, isDeputy: isDep
     };
     await fsSet('members', id, updateData);
     m.displayName=d;
+    m.isDeputy=isDep;
     if(newPw){
       m.password=newPw;
       const { data: sessData } = await sb.auth.getSession();

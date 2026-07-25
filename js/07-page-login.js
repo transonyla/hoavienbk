@@ -125,7 +125,7 @@ window.doLoginMember=async function(){
     saveSession({role:'member',id:id,clanId:'',displayName:u});
     await loadAll(true);
     const m=S.members.find(x=>x.id===id);
-    if(m){ S.session.clanId=m.clanId; S.session.displayName=m.displayName; saveSession(S.session); }
+    if(m){ S.session.clanId=m.clanId; S.session.displayName=m.displayName; S.session.isDeputy=m.isDeputy||false; saveSession(S.session); }
     // Check clan paused
     if(S.session.clanId){
       const {data:clanData}=await sb.from('clans').select('paused').eq('id',S.session.clanId).single();

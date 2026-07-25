@@ -1,5 +1,5 @@
 import { COLS, col, sb } from './01-config.js';
-import { S, clearSession, isLeader, isMember, myClanId, myClanName } from './02-state.js';
+import { S, canProxyTick, clearSession, isDeputy, isLeader, isMember, myClanId, myClanName } from './02-state.js';
 import { getFlowerImg } from './03-image-cache.js';
 import { ensureFreshSession, fsSet } from './04-api.js';
 import { esc, imgTag, labelBadgeHtml, setPulse, toast } from './05-ui-helpers.js';
@@ -128,7 +128,7 @@ export function pageTick(){
 
   const myId = S.session.id;
   const clanName=myClanName();
-  const subjectId = (isLeader() && S.proxyMemberId) ? S.proxyMemberId : myId;
+  const subjectId = (canProxyTick() && S.proxyMemberId) ? S.proxyMemberId : myId;
 
   const me = isMember()
     ? S.members.find(m=>m.id===myId)
@@ -143,12 +143,12 @@ export function pageTick(){
   }
 
   let proxyHtml='';
-  if(isLeader()){
-    const clanMembers=S.members.filter(m=>m.clanId===myClanId());
+  if(canProxyTick()){
+    const clanMembers=S.members.filter(m=>m.clanId===myClanId() && m.id!==myId);
     const opts=clanMembers.map(m=>`<option value="${m.id}" ${S.proxyMemberId===m.id?'selected':''}>${esc(m.displayName)}${m.alias?' ('+esc(m.alias)+')':''}</option>`).join('');
     proxyHtml=`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--clan)">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:.82rem;font-weight:700;color:var(--clan)">🏆 Tick hoa giúp thành viên</span>
+        <span style="font-size:.82rem;font-weight:700;color:var(--clan)">${isDeputy()?'🎖️':'🏆'} Tick hoa giúp thành viên</span>
         <select class="fi" style="max-width:220px;flex:1" onchange="setProxyMember(this.value)">
           <option value="">— Tick cho chính mình —</option>
           ${clanMembers.length?opts:'<option disabled>Chưa có thành viên</option>'}
@@ -162,10 +162,12 @@ export function pageTick(){
   const info=`<div class="card" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       ${S.proxyMemberId
-        ? `<span class="role-chip role-member">🌸 ${esc(displaySubject?.displayName||'')}</span><span style="font-size:.75rem;color:var(--clan);font-weight:600">← được tick bởi Hội trưởng</span>`
+        ? `<span class="role-chip role-member">🌸 ${esc(displaySubject?.displayName||'')}</span><span style="font-size:.75rem;color:var(--clan);font-weight:600">← được tick bởi ${isDeputy()?'Hội phó':'Hội trưởng'}</span>`
         : isLeader()
           ? `<span class="role-chip role-leader">🏆 ${esc(me?.displayName||'')}</span>`
-          : `<span class="role-chip role-member">🌸 ${esc(me?.displayName||'')}</span>`}
+          : isDeputy()
+            ? `<span class="role-chip role-member" style="background:#ede9fe;color:var(--clan)">🎖️ ${esc(me?.displayName||'')} (Hội phó)</span>`
+            : `<span class="role-chip role-member">🌸 ${esc(me?.displayName||'')}</span>`}
       <span class="clan-tag">🏅 Hội ${esc(clanName)}</span>
       <span style="font-size:.8rem;color:var(--mist);margin-left:auto">${S.msel.size}/${S.flowers.length} hoa đã chọn</span>
     </div>
@@ -211,8 +213,8 @@ window.saveTicks=async function(){
   try {
     const fresh = await ensureFreshSession();
     if(!fresh){toast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.','er');btn.disabled=false;btn.innerHTML='💾 Lưu';setPulse('');return;}
-    // Hội trưởng tick thay: lưu vào memberId được chọn, không phải id leader
-    const memberId = (isLeader() && S.proxyMemberId) ? S.proxyMemberId : S.session.id;
+    // Hội trưởng/Hội phó tick thay: lưu vào memberId được chọn, không phải id của mình
+    const memberId = (canProxyTick() && S.proxyMemberId) ? S.proxyMemberId : S.session.id;
     const saved=[...S.msel];
     // ── Quota optimisation: skip Firestore write nếu data không đổi ──────────
     const existing=S.ticks[memberId]||[];
@@ -235,7 +237,7 @@ window.saveTicks=async function(){
     if(tickGrid) tickGrid.innerHTML=buildTickGrid();
     const sbcEl=document.getElementById('sbc');
     if(sbcEl) sbcEl.textContent=S.msel.size;
-    if(isLeader()&&S.proxyMemberId){
+    if(canProxyTick()&&S.proxyMemberId){
       const m=S.members.find(x=>x.id===S.proxyMemberId);
       toast(`Đã lưu hoa cho ${m?.displayName||'thành viên'} 🌸`);
     } else {

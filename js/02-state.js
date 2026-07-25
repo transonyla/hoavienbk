@@ -77,6 +77,11 @@ export function clearSession(){
 export function isAdmin(){return S.session?.role==='admin';}
 export function isLeader(){return S.session?.role==='leader';}
 export function isMember(){return S.session?.role==='member';}
+// Hội phó: 1 member đặc biệt được leader gắn cờ is_deputy — về quyền hạn giống
+// hệt member, CHỈ khác là được phép tick hoa giúp thành viên khác (như leader).
+export function isDeputy(){return S.session?.role==='member' && S.session?.isDeputy===true;}
+// Ai được phép chọn "tick hoa giúp thành viên" ở tab Đánh dấu
+export function canProxyTick(){return isLeader() || isDeputy();}
 export function mySession(){return S.session;}
 export function myClanId(){return S.session?.clanId||'';}
 export function myClanName(){

@@ -5,13 +5,13 @@
 // Chỉ dùng cho Thành Viên/Quản Lý — Admin không dùng các card này.
 // ============================================================
 import { col } from './01-config.js';
-import { S, isLeader } from './02-state.js';
+import { S, isDeputy, isLeader } from './02-state.js';
 import { esc } from './05-ui-helpers.js';
 
 // ─── Card thông tin cá nhân (tên, vai trò, Bộ sưu tập, Đăng xuất) ─────────────
 export function cardMyInfo(){
   const s=S.session;
-  const roleLabel = isLeader() ? 'Quản Lý' : 'Thành Viên';
+  const roleLabel = isLeader() ? 'Quản Lý' : isDeputy() ? '🎖️ Hội Phó' : 'Thành Viên';
   return `<div class="card cn-frame">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
       <div>

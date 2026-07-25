@@ -57,7 +57,7 @@ function mapToRow(table, id, data){
     return { id, username: data.username??undefined, password: data.password??undefined,
       clan_id: data.clanId??undefined, leader_id: data.leaderId??undefined,
       display_name: data.displayName??undefined, alias: data.alias??undefined,
-      year: data.year??undefined };
+      year: data.year??undefined, is_deputy: data.isDeputy??undefined };
   }
   if(table === 'ticks'){
     return { id, flower_ids: data.flowerIds??[] };
@@ -157,6 +157,7 @@ export async function loadAll(force=false){
       id:r.id, username:r.username, password:r.password||'',
       clanId:r.clan_id||'', leaderId:r.leader_id||'',
       displayName:r.display_name||r.username, alias:r.alias||'', year:r.year||'',
+      isDeputy:r.is_deputy||false,
     }));
     S.ticks={};
     tk.forEach(r=>{ S.ticks[r.id]=Array.isArray(r.flower_ids)?r.flower_ids:[]; });
@@ -169,7 +170,7 @@ export async function loadAll(force=false){
         if(l){ S.session.displayName=l.displayName; S.session.clanId=l.clanId; saveSession(S.session); }
       } else if(S.session.role==='member'){
         const m=S.members.find(x=>x.id===S.session.id);
-        if(m){S.session.displayName=m.displayName;S.session.clanId=m.clanId; saveSession(S.session);}
+        if(m){S.session.displayName=m.displayName;S.session.clanId=m.clanId;S.session.isDeputy=m.isDeputy||false; saveSession(S.session);}
       }
     }
   } catch(e){
