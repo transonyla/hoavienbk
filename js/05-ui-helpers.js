@@ -314,42 +314,6 @@ function loadHtml2Canvas(){
   });
 }
 
-// Downscale ảnh gốc (thường 1000px+) xuống gần đúng kích thước sẽ hiển thị
-// trong ô lưới TRƯỚC khi đưa vào html2canvas. html2canvas tự downscale ảnh to
-// xuống ô nhỏ trong 1 bước bằng canvas drawImage() → chất lượng kém, ảnh bị mờ/nhòe
-// rõ rệt khi tỉ lệ thu nhỏ lớn (vd 1030px → 160px). Resize từng bước /2 một cho tới
-// khi gần targetSize mới cho chất lượng downscale tốt (tránh mất chi tiết 1 lần).
-async function downsampleImage(src, targetSize){
-  return new Promise(resolve=>{
-    const img=new Image();
-    img.crossOrigin='anonymous';
-    img.onload=()=>{
-      try{
-        let w=img.naturalWidth, h=img.naturalHeight;
-        if(!w || !h || Math.max(w,h)<=targetSize*1.3){ resolve(src); return; }
-        let srcCanvas=document.createElement('canvas');
-        srcCanvas.width=w; srcCanvas.height=h;
-        srcCanvas.getContext('2d').drawImage(img,0,0);
-        // Giảm dần từng bước /2 cho tới khi gần targetSize (giữ chi tiết tốt hơn 1 bước)
-        while(w>targetSize*1.3){
-          const nw=Math.max(targetSize,Math.round(w/2));
-          const nh=Math.max(targetSize,Math.round(h/2));
-          const dst=document.createElement('canvas');
-          dst.width=nw; dst.height=nh;
-          const dctx=dst.getContext('2d');
-          dctx.imageSmoothingEnabled=true;
-          dctx.imageSmoothingQuality='high';
-          dctx.drawImage(srcCanvas,0,0,nw,nh);
-          srcCanvas=dst; w=nw; h=nh;
-        }
-        resolve(srcCanvas.toDataURL('image/jpeg',0.92));
-      }catch(e){ resolve(src); } // lỗi CORS/taint canvas → fallback dùng ảnh gốc
-    };
-    img.onerror=()=>resolve(src);
-    img.src=src;
-  });
-}
-
 async function generateSnapshotImage(selectedColors){
   if(!_snapCtx){toast('Không tìm thấy dữ liệu, mở lại popup thử lại!','er');return;}
   const {role,person,clan,owned,total,roleLabel}=_snapCtx;
@@ -367,20 +331,16 @@ async function generateSnapshotImage(selectedColors){
 
   // Tra cache IndexedDB THẬT (base64) cho từng ảnh trước khi build HTML.
   // getFlowerImg(f) chỉ trả về URL gốc jsDelivr — phải qua imgCacheGet(url)
-  // mới lấy được base64 đã cache. Nếu chưa cache, fallback dùng thẳng URL gốc
-  // (jsDelivr có CORS header nên html2canvas vẫn chụp được, chỉ là phải tải mạng).
+  // Dùng thẳng ảnh gốc/cache, KHÔNG resize xuống nữa — trước đây hạ độ phân giải để
+  // tránh canvas tổng quá lớn, nhưng giờ đã chụp theo dải (tile) rồi ghép nên không còn
+  // giới hạn đó nữa. Giữ nguyên ảnh gốc cho độ nét tối đa, đổi lại xử lý chậm hơn chút.
   const allFlowersToRender=Object.values(groups).flat();
   const srcMap=new Map();
-  // Kích thước ô ảnh thực tế trong khung xuất: 1500px / 9 cột ≈ 166px,
-  // nhân với scale:2 của html2canvas (bên dưới) → cần ảnh nguồn ~332px là đủ nét,
-  // không cần giữ nguyên ảnh gốc 1000px+ (vừa tốn thời gian resize vừa không cần thiết).
-  const EXPORT_CELL_PX = Math.ceil((1500/9) * 2);
   await Promise.all(allFlowersToRender.map(async f=>{
     const url=getFlowerImg(f);
     if(!url) return;
     const cached=await imgCacheGet(url);
-    const raw=cached || url;
-    srcMap.set(f.id, await downsampleImage(raw, EXPORT_CELL_PX));
+    srcMap.set(f.id, cached || url);
   }));
 
   let bodyHtml;
@@ -424,46 +384,38 @@ async function generateSnapshotImage(selectedColors){
   const imgs=[...container.querySelectorAll('img')];
   await Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(res=>{img.onload=res;img.onerror=res;})));
 
-  // scale ĐỘNG theo kích thước thực tế: hoa càng nhiều → container càng cao →
-  // canvas (width*scale × height*scale) càng dễ vượt giới hạn an toàn của trình
-  // duyệt/GPU (~16 triệu px trên nhiều máy mobile). Vượt ngưỡng này, trình duyệt
-  // ÂM THẦM co nhỏ buffer thực tế lại dù CSS size không đổi → ảnh bị mờ, không báo lỗi.
-  // Đo trước rồi tự giảm scale (tối đa 2, tối thiểu 1) để không bao giờ chạm giới hạn.
+  // Luôn giữ scale:2 (nét tối đa) bất kể BST nhiều hay ít hoa. Thay vì chụp nguyên
+  // container trong 1 lần (dễ vượt giới hạn canvas an toàn ~16 triệu px của trình
+  // duyệt/GPU khi container quá cao, khiến trình duyệt ÂM THẦM co nhỏ buffer → mờ),
+  // ta CHIA container thành nhiều dải ngang đủ nhỏ để mỗi dải luôn nằm trong ngưỡng an
+  // toàn, chụp riêng từng dải ở scale:2 rồi ghép (drawImage) lại thành 1 canvas hoàn
+  // chỉnh — độ phân giải cuối cùng luôn full scale:2, không đánh đổi gì.
   const SAFE_CANVAS_PX = 15_000_000; // chừa biên an toàn dưới mốc 16MP phổ biến
+  const scale=2;
   const cw=container.scrollWidth, ch=container.scrollHeight;
-  let scale=2;
-  while(scale>1 && (cw*scale)*(ch*scale) > SAFE_CANVAS_PX){ scale-=0.25; }
-  scale=Math.max(1, Math.round(scale*4)/4); // làm tròn về bước .25, sàn 1
-
-  // Watermark chéo, MỜ NHẠT — chỉ đủ để nhận ra khi soi kỹ, không được nổi bật đè lên
-  // chữ tên hoa hay nội dung khác. Opacity rất thấp, không viền/không bóng đổ (những thứ
-  // đó làm chữ watermark nổi rõ hơn cả tên hoa — ngược với mục đích kín đáo).
-  const wmLabel=`${person.displayName} - ${roleLabel} hội ${clan?clan.name:''}`.trim();
-  const wmLine=Array.from({length:4}).map(()=>`🌸 ${esc(wmLabel)}`).join('　　　　　　');
-  // Phủ rộng hơn container 60% mỗi chiều để khi xoay chéo -28deg vẫn kín hết góc.
-  const wmW=Math.round(cw*1.6), wmH=Math.round(ch*1.6);
-  // Tự tính top/left bằng pixel thay vì top:50%;left:50%+translate(-50%,-50%) —
-  // html2canvas hỗ trợ transform khá hạn chế, đặc biệt khi gộp translate() + rotate()
-  // trong cùng 1 chuỗi thường KHÔNG áp dụng đúng phần translate, khiến layer bị kẹt ở vị
-  // trí top-left gốc (góc container) → watermark chỉ hiện ở 1/4 dưới-phải thay vì phủ đều.
-  // Tính pixel trực tiếp rồi chỉ để rotate() một mình trong transform → tương thích tốt hơn.
-  const wmLeft=Math.round((cw-wmW)/2), wmTop=Math.round((ch-wmH)/2);
-  const wmRowH=150;
-  const wmRows=Math.max(2, Math.ceil(wmH/wmRowH));
-  const wmLayer=document.createElement('div');
-  wmLayer.style.cssText=`position:absolute;top:${wmTop}px;left:${wmLeft}px;width:${wmW}px;height:${wmH}px;
-    transform:rotate(-28deg);pointer-events:none;z-index:50;overflow:hidden;
-    display:flex;flex-direction:column;justify-content:center;gap:0;opacity:.07;`;
-  wmLayer.innerHTML=Array.from({length:wmRows}).map(()=>
-    `<div style="white-space:nowrap;font-size:28px;font-weight:700;color:#5a3048;letter-spacing:1px;line-height:${wmRowH}px">${wmLine}</div>`
-  ).join('');
-  container.appendChild(wmLayer);
+  // Chiều cao mỗi dải (đơn vị CSS px, chưa nhân scale) sao cho (cw*scale)*(tileH*scale) <= SAFE_CANVAS_PX
+  const tileH=Math.max(200, Math.floor(SAFE_CANVAS_PX/((cw*scale)*scale)));
+  const tileCount=Math.max(1, Math.ceil(ch/tileH));
 
   try{
     const html2canvas=await loadHtml2Canvas();
-    const canvas=await html2canvas(container,{backgroundColor:'#ffffff',scale,useCORS:true});
+    const outCanvas=document.createElement('canvas');
+    outCanvas.width=Math.round(cw*scale);
+    outCanvas.height=Math.round(ch*scale);
+    const outCtx=outCanvas.getContext('2d');
+    outCtx.fillStyle='#ffffff';
+    outCtx.fillRect(0,0,outCanvas.width,outCanvas.height);
+
+    // Chụp tuần tự từng dải (không chạy song song để tránh dồn nhiều canvas lớn vào bộ nhớ cùng lúc)
+    for(let i=0;i<tileCount;i++){
+      const y=i*tileH;
+      const h=Math.min(tileH, ch-y);
+      const tileCanvas=await html2canvas(container,{backgroundColor:'#ffffff',scale,useCORS:true,x:0,y,width:cw,height:h});
+      outCtx.drawImage(tileCanvas, 0, Math.round(y*scale));
+    }
+
     container.remove();
-    showSnapshotPreview(canvas, person.displayName);
+    showSnapshotPreview(outCanvas, person.displayName);
   }catch(err){
     container.remove();
     toast('Lỗi tạo ảnh: '+(err.message||err),'er');
@@ -479,7 +431,7 @@ function showSnapshotPreview(canvas,name){
   // JPEG nén nhẹ hơn PNG rất nhiều (thường giảm 70-90% dung lượng) mà mắt
   // thường khó phân biệt khác biệt ở quality 0.85. Nền ảnh vốn đã trắng nên
   // JPEG không có nền trong suốt cũng không ảnh hưởng gì.
-  const dataUrl=canvas.toDataURL('image/jpeg', 0.85);
+  const dataUrl=canvas.toDataURL('image/jpeg', 0.97);
   const overlay=document.createElement('div');
   overlay.id='snapPreviewOverlay';
   overlay.style.cssText=`position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.78);
