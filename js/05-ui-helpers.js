@@ -12,12 +12,17 @@ export const setPulse = s => {
   document.getElementById('synclbl').textContent=s==='loading'?'Đang tải':s==='err'?'Lỗi':'Kết nối';
 };
 
-export function toast(msg,type='ok'){
+export function toast(msg,type='ok',persist=false){
   const el=document.createElement('div');
-  el.className='toast '+type;
+  el.className='toast '+type+(persist?' persist':'');
   el.textContent=(type==='ok'?'✅ ':type==='er'?'❌ ':'ℹ️ ')+msg;
   document.getElementById('toasts').appendChild(el);
-  setTimeout(()=>el.remove(),2700);
+  // persist=true → thêm class .persist (CSS bỏ animation "tout" tự fade ở giây 2.2s)
+  // và không set setTimeout ở đây — caller phải tự gọi el.remove() khi xong việc
+  // (dùng cho toast "đang xử lý" của tác vụ dài, tránh trường hợp toast tự biến mất
+  // trước khi việc thực sự hoàn tất khiến người dùng tưởng bấm không có tác dụng).
+  if(!persist) setTimeout(()=>el.remove(),2700);
+  return el;
 }
 
 export function openModal(t,b,f){
@@ -341,7 +346,11 @@ async function downsampleImage(src, targetSize){
 async function generateSnapshotImage(selectedColors){
   if(!_snapCtx){toast('Không tìm thấy dữ liệu, mở lại popup thử lại!','er');return;}
   const {role,person,clan,owned,total}=_snapCtx;
-  toast('Đang tạo ảnh, chờ chút...');
+  // persist=true — toast này KHÔNG tự ẩn theo giờ (2.7s) mặc định. Ảnh nặng/nhiều hoa
+  // có thể mất vài giây để resize + html2canvas render, nếu toast tự biến mất trước
+  // khi popup preview + nút "Lưu ảnh" thật sự hiện ra, người dùng sẽ tưởng bấm không
+  // có tác dụng gì rồi đóng popup. Chỉ ẩn thủ công ở đúng lúc preview hiện lên (hoặc lỗi).
+  const loadingToast=toast('Chờ 1 xíu nha, đang tạo...','ok',true);
 
   const groups={};
   S.flowers.forEach(f=>{
@@ -408,14 +417,29 @@ async function generateSnapshotImage(selectedColors){
   const imgs=[...container.querySelectorAll('img')];
   await Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(res=>{img.onload=res;img.onerror=res;})));
 
+  // scale ĐỘNG theo kích thước thực tế: hoa càng nhiều → container càng cao →
+  // canvas (width*scale × height*scale) càng dễ vượt giới hạn an toàn của trình
+  // duyệt/GPU (~16 triệu px trên nhiều máy mobile). Vượt ngưỡng này, trình duyệt
+  // ÂM THẦM co nhỏ buffer thực tế lại dù CSS size không đổi → ảnh bị mờ, không báo lỗi.
+  // Đo trước rồi tự giảm scale (tối đa 2, tối thiểu 1) để không bao giờ chạm giới hạn.
+  const SAFE_CANVAS_PX = 15_000_000; // chừa biên an toàn dưới mốc 16MP phổ biến
+  const cw=container.scrollWidth, ch=container.scrollHeight;
+  let scale=2;
+  while(scale>1 && (cw*scale)*(ch*scale) > SAFE_CANVAS_PX){ scale-=0.25; }
+  scale=Math.max(1, Math.round(scale*4)/4); // làm tròn về bước .25, sàn 1
+
   try{
     const html2canvas=await loadHtml2Canvas();
-    const canvas=await html2canvas(container,{backgroundColor:'#ffffff',scale:2,useCORS:true});
+    const canvas=await html2canvas(container,{backgroundColor:'#ffffff',scale,useCORS:true});
     container.remove();
     showSnapshotPreview(canvas, person.displayName);
   }catch(err){
     container.remove();
     toast('Lỗi tạo ảnh: '+(err.message||err),'er');
+  }finally{
+    // Luôn ẩn toast "đang tạo" ở bước cuối, dù thành công hay lỗi — không bao giờ
+    // để nó kẹt lại (kể cả nếu html2canvas ném lỗi bất ngờ không nằm trong catch trên).
+    loadingToast.remove();
   }
 }
 
