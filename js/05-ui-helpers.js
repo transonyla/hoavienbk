@@ -5,6 +5,13 @@ import { activateImgEager, getFlowerImg, imgCacheGet } from './03-image-cache.js
 // Ngữ cảnh của người đang được xem trong popup mf, dùng để xuất ảnh BST
 let _snapCtx=null;
 
+// Nhãn chức vụ dùng cho watermark khi xuất ảnh BST — role='leader' (bảng S.leaders) → Hội trưởng,
+// role='member' + m.isDeputy=true (bảng S.members, đặt ở 14-manage-members.js) → Hội phó, còn lại Thành viên.
+function roleLabelOf(role, person){
+  if(role==='leader') return 'Hội trưởng';
+  return person && person.isDeputy ? 'Hội phó' : 'Thành viên';
+}
+
 export const setPulse = s => {
   const d=document.getElementById('pulse');
   if(!d) return;
@@ -117,7 +124,7 @@ window.openMemberFlowers=function(memberId,role){
   card.style.transform='translateY(0) scale(1)';
   card.style.opacity='1';
   // Lưu ngữ cảnh + hiện nút nổi "Lưu ảnh BST"
-  _snapCtx={memberId, role, person, clan, owned, total};
+  _snapCtx={memberId, role, person, clan, owned, total, roleLabel: roleLabelOf(role,person)};
   buildSnapFab();
 };
 window.closeMemberFlowers=function(){
@@ -345,7 +352,7 @@ async function downsampleImage(src, targetSize){
 
 async function generateSnapshotImage(selectedColors){
   if(!_snapCtx){toast('Không tìm thấy dữ liệu, mở lại popup thử lại!','er');return;}
-  const {role,person,clan,owned,total}=_snapCtx;
+  const {role,person,clan,owned,total,roleLabel}=_snapCtx;
   // persist=true — toast này KHÔNG tự ẩn theo giờ (2.7s) mặc định. Ảnh nặng/nhiều hoa
   // có thể mất vài giây để resize + html2canvas render, nếu toast tự biến mất trước
   // khi popup preview + nút "Lưu ảnh" thật sự hiện ra, người dùng sẽ tưởng bấm không
@@ -427,6 +434,30 @@ async function generateSnapshotImage(selectedColors){
   let scale=2;
   while(scale>1 && (cw*scale)*(ch*scale) > SAFE_CANVAS_PX){ scale-=0.25; }
   scale=Math.max(1, Math.round(scale*4)/4); // làm tròn về bước .25, sàn 1
+
+  // Watermark chéo, MỜ NHẠT — chỉ đủ để nhận ra khi soi kỹ, không được nổi bật đè lên
+  // chữ tên hoa hay nội dung khác. Opacity rất thấp, không viền/không bóng đổ (những thứ
+  // đó làm chữ watermark nổi rõ hơn cả tên hoa — ngược với mục đích kín đáo).
+  const wmLabel=`${person.displayName} - ${roleLabel} hội ${clan?clan.name:''}`.trim();
+  const wmLine=Array.from({length:4}).map(()=>`🌸 ${esc(wmLabel)}`).join('　　　　　　');
+  // Phủ rộng hơn container 60% mỗi chiều để khi xoay chéo -28deg vẫn kín hết góc.
+  const wmW=Math.round(cw*1.6), wmH=Math.round(ch*1.6);
+  // Tự tính top/left bằng pixel thay vì top:50%;left:50%+translate(-50%,-50%) —
+  // html2canvas hỗ trợ transform khá hạn chế, đặc biệt khi gộp translate() + rotate()
+  // trong cùng 1 chuỗi thường KHÔNG áp dụng đúng phần translate, khiến layer bị kẹt ở vị
+  // trí top-left gốc (góc container) → watermark chỉ hiện ở 1/4 dưới-phải thay vì phủ đều.
+  // Tính pixel trực tiếp rồi chỉ để rotate() một mình trong transform → tương thích tốt hơn.
+  const wmLeft=Math.round((cw-wmW)/2), wmTop=Math.round((ch-wmH)/2);
+  const wmRowH=150;
+  const wmRows=Math.max(2, Math.ceil(wmH/wmRowH));
+  const wmLayer=document.createElement('div');
+  wmLayer.style.cssText=`position:absolute;top:${wmTop}px;left:${wmLeft}px;width:${wmW}px;height:${wmH}px;
+    transform:rotate(-28deg);pointer-events:none;z-index:50;overflow:hidden;
+    display:flex;flex-direction:column;justify-content:center;gap:0;opacity:.07;`;
+  wmLayer.innerHTML=Array.from({length:wmRows}).map(()=>
+    `<div style="white-space:nowrap;font-size:28px;font-weight:700;color:#5a3048;letter-spacing:1px;line-height:${wmRowH}px">${wmLine}</div>`
+  ).join('');
+  container.appendChild(wmLayer);
 
   try{
     const html2canvas=await loadHtml2Canvas();
