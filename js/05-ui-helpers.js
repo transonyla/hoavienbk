@@ -1,6 +1,9 @@
 import { col, COLS } from './01-config.js';
 import { S, isLeader, isMember, myClanId, myClanName } from './02-state.js';
-import { activateImgEager, getFlowerImg } from './03-image-cache.js';
+import { activateImgEager, getFlowerImg, imgCacheGet } from './03-image-cache.js';
+
+// Ngữ cảnh của người đang được xem trong popup mf, dùng để xuất ảnh BST
+let _snapCtx=null;
 
 export const setPulse = s => {
   const d=document.getElementById('pulse');
@@ -108,6 +111,9 @@ window.openMemberFlowers=function(memberId,role){
   card.style.transition='transform .22s cubic-bezier(.22,1,.36,1),opacity .16s ease';
   card.style.transform='translateY(0) scale(1)';
   card.style.opacity='1';
+  // Lưu ngữ cảnh + hiện nút nổi "Lưu ảnh BST"
+  _snapCtx={memberId, role, person, clan, owned, total};
+  buildSnapFab();
 };
 window.closeMemberFlowers=function(){
   const card=document.getElementById('mfCard');
@@ -115,6 +121,8 @@ window.closeMemberFlowers=function(){
   card.style.transform='translateY(20px) scale(.97)';
   card.style.opacity='0';
   document.getElementById('mfBg').classList.remove('on');
+  removeSnapFab();
+  _snapCtx=null;
 };
 export function warmUpGPULayers(){
   const els=[
@@ -215,4 +223,230 @@ window.copyGreeting=function(name,flowerName){
     navigator.clipboard.writeText(msg).then(done).catch(fail);
   } else { fail(); }
 };
+
+// ============================================================
+// 📸 XUẤT ẢNH BỘ SƯU TẬP — nút nổi trong suốt xuất hiện khi popup
+// openMemberFlowers đang mở. Cho chọn lọc màu → chụp lại đúng bố cục
+// popup (dùng html2canvas, tự tải qua CDN, không cần sửa index.html)
+// → hiện preview + nút tải xuống PNG.
+// ============================================================
+function buildSnapFab(){
+  if(document.getElementById('snapFab')) return;
+  const btn=document.createElement('button');
+  btn.id='snapFab';
+  btn.type='button';
+  btn.textContent='📸 Lưu ảnh BST';
+  btn.style.cssText=`position:fixed;right:16px;bottom:88px;z-index:9999;
+    padding:10px 16px;border:none;border-radius:999px;
+    background:rgba(190,24,93,.55);color:#fff;font-weight:700;font-size:.82rem;
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+    box-shadow:0 4px 16px rgba(0,0,0,.25);`;
+  btn.onclick=openSnapFilterPanel;
+  document.body.appendChild(btn);
+}
+function removeSnapFab(){
+  document.getElementById('snapFab')?.remove();
+  document.getElementById('snapFilterPanel')?.remove();
+}
+
+function openSnapFilterPanel(){
+  if(document.getElementById('snapFilterPanel')) return;
+  const panel=document.createElement('div');
+  panel.id='snapFilterPanel';
+  panel.style.cssText=`position:fixed;right:16px;bottom:150px;z-index:9999;
+    background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    border-radius:16px;padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,.25);
+    display:flex;flex-direction:column;gap:6px;min-width:180px;max-height:60vh;overflow-y:auto;`;
+  // Bỏ "Trắng/Xám" và "Xanh lá" khỏi bộ lọc xuất ảnh theo yêu cầu — 2 màu này
+  // sẽ không xuất hiện trong ảnh BST dù chọn "Tất cả".
+  const snapCols=COLS.filter(c=>c.k!=='trang' && c.k!=='xanh');
+  const colorOpts=snapCols.map(c=>`<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:${col(c.k).h};font-weight:600">
+    <input type="checkbox" class="snap-color-chk" value="${c.k}" checked> ${c.l}
+  </label>`).join('');
+  panel.innerHTML=`
+    <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;color:#333">
+      <input type="checkbox" id="snapAll" checked> Tất cả
+    </label>
+    <div style="height:1px;background:#0002;margin:2px 0"></div>
+    ${colorOpts}
+    <button id="snapOkBtn" style="margin-top:6px;padding:9px;border:none;border-radius:10px;background:#be185d;color:#fff;font-weight:700;font-size:.82rem">✅ Tạo ảnh</button>
+    <button id="snapCancelBtn" style="padding:7px;border:none;border-radius:10px;background:#f3f4f6;color:#666;font-weight:600;font-size:.78rem">Hủy</button>
+  `;
+  document.body.appendChild(panel);
+  panel.querySelector('#snapAll').onchange=e=>{
+    panel.querySelectorAll('.snap-color-chk').forEach(chk=>{chk.checked=e.target.checked;});
+  };
+  panel.querySelectorAll('.snap-color-chk').forEach(chk=>{
+    chk.onchange=()=>{
+      const all=[...panel.querySelectorAll('.snap-color-chk')].every(c=>c.checked);
+      panel.querySelector('#snapAll').checked=all;
+    };
+  });
+  panel.querySelector('#snapCancelBtn').onclick=()=>panel.remove();
+  panel.querySelector('#snapOkBtn').onclick=async ()=>{
+    const selected=[...panel.querySelectorAll('.snap-color-chk')].filter(c=>c.checked).map(c=>c.value);
+    panel.remove();
+    if(!selected.length){toast('Chọn ít nhất 1 màu!','wn');return;}
+    await generateSnapshotImage(selected);
+  };
+}
+
+function loadHtml2Canvas(){
+  return new Promise((resolve,reject)=>{
+    if(window.html2canvas){resolve(window.html2canvas);return;}
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.onload=()=>resolve(window.html2canvas);
+    s.onerror=()=>reject(new Error('Không tải được thư viện tạo ảnh (kiểm tra mạng)'));
+    document.head.appendChild(s);
+  });
+}
+
+// Downscale ảnh gốc (thường 1000px+) xuống gần đúng kích thước sẽ hiển thị
+// trong ô lưới TRƯỚC khi đưa vào html2canvas. html2canvas tự downscale ảnh to
+// xuống ô nhỏ trong 1 bước bằng canvas drawImage() → chất lượng kém, ảnh bị mờ/nhòe
+// rõ rệt khi tỉ lệ thu nhỏ lớn (vd 1030px → 160px). Resize từng bước /2 một cho tới
+// khi gần targetSize mới cho chất lượng downscale tốt (tránh mất chi tiết 1 lần).
+async function downsampleImage(src, targetSize){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{
+      try{
+        let w=img.naturalWidth, h=img.naturalHeight;
+        if(!w || !h || Math.max(w,h)<=targetSize*1.3){ resolve(src); return; }
+        let srcCanvas=document.createElement('canvas');
+        srcCanvas.width=w; srcCanvas.height=h;
+        srcCanvas.getContext('2d').drawImage(img,0,0);
+        // Giảm dần từng bước /2 cho tới khi gần targetSize (giữ chi tiết tốt hơn 1 bước)
+        while(w>targetSize*1.3){
+          const nw=Math.max(targetSize,Math.round(w/2));
+          const nh=Math.max(targetSize,Math.round(h/2));
+          const dst=document.createElement('canvas');
+          dst.width=nw; dst.height=nh;
+          const dctx=dst.getContext('2d');
+          dctx.imageSmoothingEnabled=true;
+          dctx.imageSmoothingQuality='high';
+          dctx.drawImage(srcCanvas,0,0,nw,nh);
+          srcCanvas=dst; w=nw; h=nh;
+        }
+        resolve(srcCanvas.toDataURL('image/jpeg',0.92));
+      }catch(e){ resolve(src); } // lỗi CORS/taint canvas → fallback dùng ảnh gốc
+    };
+    img.onerror=()=>resolve(src);
+    img.src=src;
+  });
+}
+
+async function generateSnapshotImage(selectedColors){
+  if(!_snapCtx){toast('Không tìm thấy dữ liệu, mở lại popup thử lại!','er');return;}
+  const {role,person,clan,owned,total}=_snapCtx;
+  toast('Đang tạo ảnh, chờ chút...');
+
+  const groups={};
+  S.flowers.forEach(f=>{
+    if(owned.has(f.id) && selectedColors.includes(f.color)) (groups[f.color]||(groups[f.color]=[])).push(f);
+  });
+  const filteredCount=Object.values(groups).reduce((a,g)=>a+g.length,0);
+
+  // Tra cache IndexedDB THẬT (base64) cho từng ảnh trước khi build HTML.
+  // getFlowerImg(f) chỉ trả về URL gốc jsDelivr — phải qua imgCacheGet(url)
+  // mới lấy được base64 đã cache. Nếu chưa cache, fallback dùng thẳng URL gốc
+  // (jsDelivr có CORS header nên html2canvas vẫn chụp được, chỉ là phải tải mạng).
+  const allFlowersToRender=Object.values(groups).flat();
+  const srcMap=new Map();
+  // Kích thước ô ảnh thực tế trong khung xuất: 1500px / 9 cột ≈ 166px,
+  // nhân với scale:2 của html2canvas (bên dưới) → cần ảnh nguồn ~332px là đủ nét,
+  // không cần giữ nguyên ảnh gốc 1000px+ (vừa tốn thời gian resize vừa không cần thiết).
+  const EXPORT_CELL_PX = Math.ceil((1500/9) * 2);
+  await Promise.all(allFlowersToRender.map(async f=>{
+    const url=getFlowerImg(f);
+    if(!url) return;
+    const cached=await imgCacheGet(url);
+    const raw=cached || url;
+    srcMap.set(f.id, await downsampleImage(raw, EXPORT_CELL_PX));
+  }));
+
+  let bodyHtml;
+  if(filteredCount===0){
+    bodyHtml=`<div class="empty" style="padding:30px 0"><div class="empty-icon">🌿</div>Không có hoa nào khớp bộ lọc</div>`;
+  } else {
+    bodyHtml=Object.entries(groups).sort((a,b)=>{
+      const ia=COLS.findIndex(c=>c.k===a[0]), ib=COLS.findIndex(c=>c.k===b[0]);
+      return ib-ia;
+    }).map(([ck,flowers])=>{
+      const cv=col(ck);
+      return `<div class="mf-grp"><div class="mf-grp-bar" style="background:${cv.h}"></div><h3 style="color:${cv.h}">${cv.l}</h3><span class="mf-grp-cnt">${flowers.length}</span></div>
+      <div class="mf-grid">${flowers.map(f=>{
+        const src=srcMap.get(f.id);
+        return `<div class="mf-fc">
+          <div class="mf-fc-img" style="position:relative">${src?`<img src="${src}" crossorigin="anonymous">`:`<span class="mf-fc-letter" style="color:${cv.h}">${esc(f.name.charAt(0))}</span>`}${labelBadgeHtml(f,'sm')}</div>
+          <div class="mf-fc-name" style="color:${cv.h}">${esc(f.name)}</div>
+        </div>`;
+      }).join('')}</div>`;
+    }).join('');
+  }
+
+  const container=document.createElement('div');
+  container.id='snapExportBox';
+  // Khung xuất ảnh rộng hơn hẳn popup gốc (380px) để ảnh không bị dài-hẹp khi
+  // hoa nhiều — ép lưới hoa thành 9 cột CHỈ trong khung xuất này (không đụng
+  // đến giao diện popup thật trên điện thoại, vẫn giữ nguyên 3 cột như cũ).
+  container.style.cssText='position:fixed;left:-9999px;top:0;width:1500px;background:#fff;';
+  container.innerHTML=`<style>
+      #snapExportBox .mf-grid{grid-template-columns:repeat(9,1fr) !important}
+      #snapExportBox .mf-fc-name{font-size:.92em}
+    </style>
+    <div class="mf-head">
+      <div class="mf-title">${role==='leader'?'🏆':'🌸'} ${esc(person.displayName)}</div>
+      <div class="mf-sub">${clan?'🏅 Hội '+esc(clan.name)+' · ':''}${filteredCount}/${total} hoa đã sở hữu${selectedColors.length<(COLS.length-2)?' (đã lọc màu)':''}</div>
+    </div>
+    <div class="mf-body">${bodyHtml}</div>`;
+  document.body.appendChild(container);
+
+  // Đợi toàn bộ ảnh trong khung xuất load xong (kể cả lỗi) trước khi chụp
+  const imgs=[...container.querySelectorAll('img')];
+  await Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(res=>{img.onload=res;img.onerror=res;})));
+
+  try{
+    const html2canvas=await loadHtml2Canvas();
+    const canvas=await html2canvas(container,{backgroundColor:'#ffffff',scale:2,useCORS:true});
+    container.remove();
+    showSnapshotPreview(canvas, person.displayName);
+  }catch(err){
+    container.remove();
+    toast('Lỗi tạo ảnh: '+(err.message||err),'er');
+  }
+}
+
+function showSnapshotPreview(canvas,name){
+  // JPEG chất lượng cao thay vì PNG — ảnh dạng photo (nhiều hoa, nhiều màu)
+  // JPEG nén nhẹ hơn PNG rất nhiều (thường giảm 70-90% dung lượng) mà mắt
+  // thường khó phân biệt khác biệt ở quality 0.85. Nền ảnh vốn đã trắng nên
+  // JPEG không có nền trong suốt cũng không ảnh hưởng gì.
+  const dataUrl=canvas.toDataURL('image/jpeg', 0.85);
+  const overlay=document.createElement('div');
+  overlay.id='snapPreviewOverlay';
+  overlay.style.cssText=`position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.78);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;`;
+  overlay.innerHTML=`
+    <div id="snapPreviewImgWrap" style="max-width:100%;max-height:70vh;overflow:auto;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4)">
+      <img src="${dataUrl}" style="display:block;width:100%;height:auto">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button id="snapDownloadBtn" style="padding:10px 18px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-weight:700">💾 Lưu ảnh về máy</button>
+      <button id="snapCloseBtn" style="padding:10px 18px;border:none;border-radius:12px;background:#fff;color:#333;font-weight:700">✕ Đóng</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  // Chạm ra ngoài vùng ảnh/nút (tức trúng overlay nền) → đóng popup
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  overlay.querySelector('#snapDownloadBtn').onclick=()=>{
+    const a=document.createElement('a');
+    a.href=dataUrl;
+    a.download=`BST-${String(name||'thanhvien').replace(/[^\p{L}\p{N}]+/gu,'_')}.jpg`;
+    a.click();
+  };
+  overlay.querySelector('#snapCloseBtn').onclick=()=>overlay.remove();
+}
 
