@@ -537,6 +537,11 @@ select.fi{cursor:pointer;appearance:none;background-image:url("data:image/svg+xm
 .toast.ok{border-left:3px solid #7ed6a0}
 .toast.er{border-left:3px solid #ff7a8a}
 .toast.wn{border-left:3px solid #ffd76a}
+/* Toast "persist" — dùng cho tác vụ dài (vd xuất ảnh BST) nơi JS tự quyết định
+   lúc nào ẩn (.remove()) thay vì hẹn giờ cố định. Chỉ override phần "tout" (fade-out
+   tự động ở giây 2.2s) của .toast gốc, giữ nguyên animation "tin" (fade-in) và toàn bộ
+   style khác — không ảnh hưởng tới các toast thường (báo lỗi, thông báo ngắn...) ở nơi khác. */
+.toast.persist{animation:tin var(--dur-fast) var(--ease-spring) forwards}
 @keyframes tin{from{opacity:0;transform:translateX(12px) scale(.96)}to{opacity:1;transform:translateX(0) scale(1)}}
 @keyframes tout{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(12px)}}
 
