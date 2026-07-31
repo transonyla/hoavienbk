@@ -1,4 +1,4 @@
-import { S, isAdmin, isLeader, isMember } from './02-state.js';
+import { S, isAdmin, isDeputy, isLeader, isMember } from './02-state.js';
 import { activateImageCache } from './03-image-cache.js';
 import { esc, openModal, warmUpGPULayers } from './05-ui-helpers.js';
 import { renderLogin, renderShareLogin } from './07-page-login.js';
@@ -123,34 +123,53 @@ window.dismissAnnouncement=function(){
 window.openGuide=function(){
   const role=S.session?.role;
   const isLd=role==='leader';
-  const guideLeader=isLd?`
+  const isDp=isDeputy();
+
+  // ── Khối riêng: Tick hoa giúp thành viên (Hội trưởng VÀ Hội phó đều có) ──────
+  const guideProxy=(isLd||isDp)?`
 <div style="margin-top:18px;padding-top:14px;border-top:1.5px solid var(--bd)">
-  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🏆 Tính năng riêng của Hội trưởng</div>
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">${isLd?'🏆':'🎖️'} Tính năng riêng của ${isLd?'Hội trưởng':'Hội phó'}</div>
 
   <div style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:6px">✅ Tick hoa thay cho thành viên</div>
   <div style="font-size:.8rem;color:var(--mist);line-height:1.7;margin-bottom:10px">
-    Vào tab <b>✅ Đánh dấu</b>, chọn tên thành viên trong ô <b>"Tick thay cho thành viên"</b> phía trên. Danh sách hoa sẽ hiển thị đúng trạng thái tick hiện tại của thành viên đó. Tick/bỏ tick hoa rồi bấm <b>💾 Lưu</b> — dữ liệu lưu vào tài khoản của thành viên đó, không phải của bạn. Tiện cho những thành viên chưa kịp tự cập nhật.<br>
+    Vào tab <b>✅ Đánh dấu</b>, chọn tên thành viên trong ô <b>"Tick hoa giúp thành viên"</b> phía trên. Danh sách hoa sẽ hiển thị đúng trạng thái tick hiện tại của thành viên đó. Tick/bỏ tick hoa rồi bấm <b>💾 Lưu</b> — dữ liệu lưu vào tài khoản của thành viên đó, không phải của bạn.<br>
     <span style="color:var(--clan);font-size:.76rem">💡 Thanh dưới hiện "Lưu cho [Tên thành viên]: X hoa" để nhắc bạn đang lưu cho ai.</span>
   </div>
+</div>`:'';
 
-  <div style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:6px">⚙️ Thêm thành viên mới</div>
-  <div style="font-size:.8rem;color:var(--mist);line-height:1.7">
-    Vào tab <b>⚙️ Quản lý</b>, bấm <b>+ Thêm TV</b>. Điền đầy đủ: Tên hiển thị, Username, Mật khẩu (bắt buộc) và Biệt danh, Năm (tuỳ chọn). Hội tự động gán theo hội của bạn. Bấm <b>Thêm</b> — hệ thống tự tạo luôn tài khoản đăng nhập.<br>
-    <span style="color:var(--clan);font-size:.76rem">⚠️ Nếu tạo lỗi, dữ liệu tự xóa để tránh tài khoản rỗng không đăng nhập được.</span>
+  // ── Khối riêng: chỉ Hội trưởng (quản lý thành viên trong hội) ────────────────
+  const guideLeader=isLd?`
+<div style="margin-top:18px;padding-top:14px;border-top:1.5px solid var(--bd)">
+  <div style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:6px">⚙️ Quản lý thành viên trong hội</div>
+  <div style="font-size:.8rem;color:var(--mist);line-height:1.7;margin-bottom:10px">
+    Vào tab <b>⚙️ Quản lý</b> để xem toàn bộ thành viên của hội mình. Tại đây bạn có thể:
   </div>
-</div>`:''
+  <ul style="margin:0 0 10px 16px;padding:0;font-size:.8rem;color:var(--mist);line-height:1.7">
+    <li><b>+ Thêm TV:</b> điền Tên hiển thị, Username, Mật khẩu (bắt buộc), Biệt danh/Năm (tuỳ chọn) — hệ thống tự tạo tài khoản đăng nhập, tự gán vào hội của bạn.</li>
+    <li><b>✏️ Sửa:</b> đổi tên hiển thị, biệt danh, gắn/gỡ vai trò <b>🎖️ Hội phó</b>, hoặc đặt lại mật khẩu mới.</li>
+    <li><b>🔗 Chia sẻ:</b> copy link xem trước danh sách hoa của thành viên đó — gửi cho người khác, họ chỉ cần nhập đúng mật khẩu của thành viên là xem được ngay tab Đánh dấu (không cần tự đăng nhập từng bước). Xem thêm mục "🔗 Link chia sẻ" bên dưới.</li>
+    <li><b>🗑️ Xóa:</b> xoá thành viên khỏi hội (không thể hoàn tác).</li>
+  </ul>
+  <div style="background:#fef3c7;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:.77rem;color:#92400e">
+    ⚠️ Mật khẩu chỉ hiển thị lại đúng ngay lúc bạn vừa tạo/sửa trong phiên hiện tại. Sau khi tải lại trang, cột mật khẩu sẽ trống — đây là thiết kế bảo mật có chủ đích, không phải lỗi.
+  </div>
+  <div style="font-size:.8rem;color:var(--mist);line-height:1.7">
+    Nếu hội đang trong thời gian <b>thuê</b> hoặc <b>dùng thử</b>, thẻ trạng thái (còn bao nhiêu ngày) sẽ hiện ngay đầu tab Quản lý.
+  </div>
+</div>`:'';
+
   const body=`
 <div style="font-size:.8rem;color:var(--mist);line-height:1.8">
 
   <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🔐 Đăng nhập & Đăng xuất</div>
-  <div style="margin-bottom:14px">Nhập đúng <b>Tên đăng nhập</b> và <b>Mật khẩu</b> được cấp, bấm nút đăng nhập tương ứng. Để đăng xuất, bấm vào <b>tên của bạn</b> ở góc trên bên phải (có dấu ✕ nhỏ phía sau).</div>
+  <div style="margin-bottom:14px">Nhập đúng <b>Tên đăng nhập</b> và <b>Mật khẩu</b> được cấp, chọn đúng tab (Thành viên / Hội trưởng) rồi bấm nút đăng nhập. Để đăng xuất: bấm vào <b>tên của bạn</b> ở góc trên bên phải (Admin/Hội trưởng chưa vào Dashboard), hoặc bấm <b>🚪 Đăng xuất</b> trong thẻ thông tin cá nhân ở tab Thành viên.</div>
 
   <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🌸 Tab Hoa — Xem danh sách hoa</div>
   <div style="margin-bottom:6px">Danh sách toàn bộ hoa hiển thị dưới dạng thẻ card, mỗi thẻ có ảnh, tên hoa, màu sắc và số người trong hội sở hữu.</div>
   <ul style="margin:0 0 10px 16px;padding:0">
-    <li><b>Lọc theo màu:</b> Bấm nút màu phía trên (Tất cả, Trắng, Xanh lá, Xanh lam, Tím, Cam, Đỏ hồng). Số trong ngoặc là <i>hoa bạn đã tick / tổng hoa màu đó</i>.</li>
-    <li><b>Tìm kiếm:</b> Gõ tên hoa vào ô tìm kiếm, kết quả lọc ngay tức thì.</li>
-    <li><b>Xem ai sở hữu:</b> Bấm vào bất kỳ thẻ hoa nào để xem danh sách thành viên trong hội đã tick hoa đó.</li>
+    <li><b>Lọc theo màu:</b> Bấm nút màu phía trên (Tất cả, Trắng, Xanh lá, Xanh lam, Tím, Cam, Đỏ hồng).</li>
+    <li><b>Tìm kiếm:</b> Gõ tên hoa vào ô tìm kiếm, kết quả lọc ngay tức thì — tiện để tra nhanh 1 loài hoa đang cần cho nhiệm vụ tuần.</li>
+    <li><b>Xem ai sở hữu:</b> Bấm vào bất kỳ thẻ hoa nào để xem những thành viên trong hội đã tick hoa đó — giúp tìm nhanh người có sẵn hoa cần dùng.</li>
   </ul>
 
   <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">✅ Tab Đánh dấu — Tick hoa của bạn</div>
@@ -160,23 +179,32 @@ window.openGuide=function(){
     <li>Bấm vào thẻ hoa để bật/tắt dấu tick (thẻ sáng lên khi đã chọn)</li>
     <li>Bấm nút <b>💾 Lưu</b> ở thanh dưới màn hình để lưu lại</li>
   </ol>
+  <div style="margin-bottom:10px">Hoa được chia làm 2 khối: <b>🌸 Đã đánh dấu</b> và <b>⬜ Chưa đánh dấu</b> — bấm vào tiêu đề mỗi khối để đóng/mở cho gọn màn hình.</div>
   <div style="background:#fef3c7;border-radius:8px;padding:8px 10px;margin-bottom:14px;font-size:.77rem;color:#92400e">
-    ⚠️ <b>Quan trọng:</b> Nếu tick hoa nhưng <b>không bấm Lưu</b> trước khi thoát tab, dữ liệu sẽ bị mất. Thanh dưới luôn hiển thị số hoa đang chọn để bạn theo dõi.
+    ⚠️ <b>Quan trọng:</b> Nếu tick hoa nhưng <b>không bấm Lưu</b> trước khi rời tab, dữ liệu sẽ bị mất. Thanh dưới luôn hiển thị số hoa đang chọn để bạn theo dõi.
   </div>
 
-  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">👥 Tab Thành viên — Xem danh sách hội</div>
-  <ul style="margin:0 0 14px 16px;padding:0">
-    <li>Chỉ hiện thành viên <b>cùng hội</b> với bạn</li>
-    <li>Thống kê nhanh đầu trang: tổng thành viên, tổng loài hoa, trung bình hoa/người</li>
-    <li>Bấm vào tên thành viên để xem danh sách chi tiết các hoa họ đã tick</li>
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">👥 Tab Thành viên — Dashboard của bạn</div>
+  <ul style="margin:0 0 6px 16px;padding:0">
+    <li><b>Thẻ cá nhân:</b> tên, vai trò, nút tắt <b>🌸 Bộ sưu tập</b> (nhảy nhanh sang tab Đánh dấu) và <b>🚪 Đăng xuất</b>.</li>
+    <li><b>Danh sách thành viên:</b> chỉ hiện thành viên <b>cùng hội</b>, xếp hạng theo số hoa sở hữu. Bấm vào tên để mở popup xem đầy đủ các hoa họ đã tick, chia theo màu.</li>
+    <li><b>📸 Lưu ảnh BST:</b> trong popup xem hoa của 1 người, có nút nổi để lọc màu rồi chụp lại thành 1 ảnh — tiện lưu hoặc gửi cho người khác.</li>
+    <li><b>💎 Hoa Hiếm:</b> thẻ cuối trang liệt kê những hoa ít người trong hội sở hữu nhất — biết ngay nên ưu tiên xin/đổi hoa nào.</li>
   </ul>
+
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🏆 Tab Xếp hạng — Bảng vinh danh theo màu</div>
+  <div style="margin-bottom:14px">Chọn 1 màu ở hàng tab phía trên, bảng xếp hạng sẽ hiện bục 1-2-3 và danh sách thành viên sở hữu nhiều hoa màu đó nhất trong hội.</div>
+
+  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🔗 Link chia sẻ — Xem list hoa không cần đăng nhập từ đầu</div>
+  <div style="margin-bottom:14px">Hội trưởng có thể copy link chia sẻ riêng cho từng thành viên (nút 🔗 trong tab Quản lý). Người nhận link chỉ cần mở link và nhập đúng <b>mật khẩu của thành viên đó</b> — không cần biết username — là được đưa thẳng vào tab Đánh dấu để xem/tick hoa giúp. Nếu nhập sai nhiều lần, link sẽ tạm khoá một lúc để tránh dò mật khẩu.</div>
 
   <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;font-size:.77rem;color:#166534">
     📌 <b>Nếu quên mật khẩu:</b> Liên hệ Hội trưởng hoặc Admin để được đặt lại.
   </div>
+  ${guideProxy}
   ${guideLeader}
 </div>`;
-  openModal(isLd?'📖 Hướng dẫn — Hội trưởng':'📖 Hướng dẫn — Thành viên', body, `<button class="btn btn-g" onclick="closeModal()" style="min-width:100px">Đã hiểu ✓</button>`);
+  openModal(isLd?'📖 Hướng dẫn — Hội trưởng':isDp?'📖 Hướng dẫn — Hội phó':'📖 Hướng dẫn — Thành viên', body, `<button class="btn btn-g" onclick="closeModal()" style="min-width:100px">Đã hiểu ✓</button>`);
 };
 
 function renderNav(){
