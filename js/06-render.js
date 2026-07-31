@@ -147,7 +147,7 @@ window.openGuide=function(){
   <ul style="margin:0 0 10px 16px;padding:0;font-size:.8rem;color:var(--mist);line-height:1.7">
     <li><b>+ Thêm TV:</b> điền Tên hiển thị, Username, Mật khẩu (bắt buộc), Biệt danh/Năm (tuỳ chọn) — hệ thống tự tạo tài khoản đăng nhập, tự gán vào hội của bạn.</li>
     <li><b>✏️ Sửa:</b> đổi tên hiển thị, biệt danh, gắn/gỡ vai trò <b>🎖️ Hội phó</b>, hoặc đặt lại mật khẩu mới.</li>
-    <li><b>🔗 Chia sẻ:</b> copy link xem trước danh sách hoa của thành viên đó — gửi cho người khác, họ chỉ cần nhập đúng mật khẩu của thành viên là xem được ngay tab Đánh dấu (không cần tự đăng nhập từng bước). Xem thêm mục "🔗 Link chia sẻ" bên dưới.</li>
+    <li><b>🔗 Chia sẻ:</b> copy link dẫn nhanh đến tab Đánh dấu của thành viên đó — gửi cho người khác, họ chỉ cần mở link, nhập đúng mật khẩu của thành viên là vào thẳng tab Đánh dấu để xem/tick hoa giúp (không cần tự đăng nhập từng bước).</li>
     <li><b>🗑️ Xóa:</b> xoá thành viên khỏi hội (không thể hoàn tác).</li>
   </ul>
   <div style="background:#fef3c7;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:.77rem;color:#92400e">
@@ -194,9 +194,6 @@ window.openGuide=function(){
 
   <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🏆 Tab Xếp hạng — Bảng vinh danh theo màu</div>
   <div style="margin-bottom:14px">Chọn 1 màu ở hàng tab phía trên, bảng xếp hạng sẽ hiện bục 1-2-3 và danh sách thành viên sở hữu nhiều hoa màu đó nhất trong hội.</div>
-
-  <div style="font-size:.92rem;font-weight:800;color:var(--forest);margin-bottom:10px">🔗 Link chia sẻ — Xem list hoa không cần đăng nhập từ đầu</div>
-  <div style="margin-bottom:14px">Hội trưởng có thể copy link chia sẻ riêng cho từng thành viên (nút 🔗 trong tab Quản lý). Người nhận link chỉ cần mở link và nhập đúng <b>mật khẩu của thành viên đó</b> — không cần biết username — là được đưa thẳng vào tab Đánh dấu để xem/tick hoa giúp. Nếu nhập sai nhiều lần, link sẽ tạm khoá một lúc để tránh dò mật khẩu.</div>
 
   <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;font-size:.77rem;color:#166534">
     📌 <b>Nếu quên mật khẩu:</b> Liên hệ Hội trưởng hoặc Admin để được đặt lại.
