@@ -492,6 +492,13 @@ select.fi{cursor:pointer;appearance:none;background-image:url("data:image/svg+xm
 .mtbl{width:100%;border-collapse:collapse}
 .mtbl th{text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mist);padding:9px 12px;border-bottom:2px solid var(--bd)}
 .mtbl td{padding:12px 12px;border-bottom:1px solid var(--sage);font-size:.86rem;vertical-align:middle}
+/* Tên thành viên: không bẻ giữa chữ (vd "Sammy" / "Dương" xuống 2 dòng) làm lệch
+   hàng trong bảng — giữ trên 1 dòng, cột cha đã bọc overflow-x:auto nên nếu
+   không đủ chỗ sẽ cuộn ngang thay vì vỡ chữ. */
+.mtbl td:first-child:has(.mb-name-link),
+.mtbl td:first-child:has(strong){min-width:120px}
+.mtbl td:first-child>strong,
+.mtbl td:first-child .mb-name-link{white-space:nowrap}
 .mtbl tr:last-child td{border-bottom:none}
 .mtbl tr:hover td{background:var(--sage)}
 .mbar-w{display:flex;align-items:center;gap:8px;min-width:90px}
