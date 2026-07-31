@@ -4,6 +4,125 @@ import { findLoginId, loadAll, writeLastLogin } from './04-api.js';
 import { setPulse, toast } from './05-ui-helpers.js';
 import { render } from './06-render.js';
 
+// ─── SHARE LINK LOGIN (xem list hoa của 1 thành viên qua link chia sẻ) ────────
+// Không cần chọn role/username — id thành viên đã nằm sẵn trong URL (#share=<id>),
+// chỉ cần đúng mật khẩu của chính tài khoản đó.
+//
+// Chống dò mật khẩu (brute-force) khi ai đó đổi id trong link để thử sang thành
+// viên hội khác: đếm số lần sai theo từng memberId, lưu localStorage. Sai quá
+// SHARE_MAX_FAIL lần → khoá nhập trong SHARE_LOCK_MS, thời gian khoá tăng dần
+// mỗi lần bị khoá thêm (chống thử lại bằng cách đổi id khác rồi quay lại).
+const SHARE_MAX_FAIL = 5;
+const SHARE_LOCK_MS = 5*60*1000; // 5 phút mỗi lần khoá
+function shareAttemptKey(id){ return 'hv_share_att_'+id; }
+function getShareAttempt(id){
+  try { return JSON.parse(localStorage.getItem(shareAttemptKey(id))||'null') || {fails:0, lockedUntil:0}; }
+  catch(e){ return {fails:0, lockedUntil:0}; }
+}
+function setShareAttempt(id, data){
+  try { localStorage.setItem(shareAttemptKey(id), JSON.stringify(data)); } catch(e){}
+}
+function shareLockRemaining(id){
+  const a=getShareAttempt(id);
+  const left=a.lockedUntil-Date.now();
+  return left>0?left:0;
+}
+function fmtLockTime(ms){
+  const s=Math.ceil(ms/1000);
+  const m=Math.floor(s/60), ss=s%60;
+  return m>0?`${m} phút ${ss}s`:`${ss}s`;
+}
+
+export function renderShareLogin(){
+  const id=S.shareMemberId;
+  if(!S.shareLinkValid){
+    return `<div class="login-wrap">
+      <div class="login-box">
+        <div class="login-logo">⚠️</div>
+        <div class="login-title">Link không hợp lệ</div>
+        <div class="login-sub">Link chia sẻ này không đúng định dạng.<br>Vui lòng lấy lại link từ trang Quản lý.</div>
+      </div>
+    </div>`;
+  }
+  const lockLeft=id?shareLockRemaining(id):0;
+  if(lockLeft>0){
+    return `<div class="login-wrap">
+      <div class="login-box">
+        <div class="login-logo">🔒</div>
+        <div class="login-title">Tạm khoá</div>
+        <div class="login-sub">Bạn đã nhập sai quá nhiều lần.<br>Vui lòng thử lại sau <strong>${fmtLockTime(lockLeft)}</strong>.</div>
+      </div>
+    </div>`;
+  }
+  return `<div class="login-wrap">
+    <div class="login-box">
+      <div class="login-logo">🌸</div>
+      <div class="login-title">Danh sách hoa</div>
+      <div class="login-sub">Nhập mật khẩu để xem hoa đã đánh dấu</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="fg-col"><label class="fl">Mật khẩu</label><input class="fi" id="share-pw" type="password" placeholder="password" onkeydown="if(event.key==='Enter')doLoginShare()"></div>
+        <button class="btn btn-p" id="login-share-btn" style="width:100%;justify-content:center" onclick="doLoginShare()">🌸 Xem hoa</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+window.doLoginShare=async function(){
+  const id=S.shareMemberId;
+  if(!id || !S.shareLinkValid){toast('Link chia sẻ không hợp lệ!','er');return;}
+  if(shareLockRemaining(id)>0){ render(); return; } // đang bị khoá, không cho thử
+  const pw=document.getElementById('share-pw')?.value;
+  if(!pw){toast('Nhập mật khẩu!','wn');return;}
+  const btn=document.querySelector('#login-share-btn');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="sp"></div>';}
+  try {
+    // Nếu đang login sẵn 1 tài khoản khác → đăng xuất trước khi vào bằng link chia sẻ
+    if(S.session && S.session.id!==id){ try{ await sb.auth.signOut(); }catch(e){} clearSession(); }
+    const safePw = pw.length>=6 ? pw : pw.padEnd(6,'0');
+    const { data: signInData, error } = await sb.auth.signInWithPassword({ email: `${id}@app.local`, password: safePw });
+    if(error){
+      // Ghi nhận lần sai — sau SHARE_MAX_FAIL lần thì khoá tạm
+      const a=getShareAttempt(id);
+      a.fails=(a.fails||0)+1;
+      if(a.fails>=SHARE_MAX_FAIL){
+        const strikes=(a.strikes||0)+1; // số lần đã từng bị khoá — khoá lần sau lâu hơn
+        a.strikes=strikes;
+        a.lockedUntil=Date.now()+SHARE_LOCK_MS*strikes;
+        a.fails=0;
+        setShareAttempt(id, a);
+        toast('Sai quá nhiều lần, đã tạm khoá!','er');
+        render();
+        return;
+      }
+      setShareAttempt(id, a);
+      toast(`Sai mật khẩu! (còn ${SHARE_MAX_FAIL-a.fails} lần thử)`,'er');
+      if(btn){btn.disabled=false;btn.innerHTML='🌸 Xem hoa';}
+      return;
+    }
+    // Đúng mật khẩu → xoá bộ đếm sai của id này
+    try { localStorage.removeItem(shareAttemptKey(id)); } catch(e){}
+    saveSession({role:'member',id,clanId:'',displayName:''});
+    await loadAll(true);
+    const m=S.members.find(x=>x.id===id);
+    if(!m){ toast('Không tìm thấy thành viên này!','er'); await sb.auth.signOut(); clearSession(); render(); return; }
+    S.session.clanId=m.clanId; S.session.displayName=m.displayName; S.session.isDeputy=m.isDeputy||false; saveSession(S.session);
+    // Check clan paused
+    if(S.session.clanId){
+      const {data:clanData}=await sb.from('clans').select('paused').eq('id',S.session.clanId).single();
+      if(clanData?.paused){ clearSession(); toast('Hội của bạn đang tạm dừng. Vui lòng liên hệ Admin.','er'); setPulse(''); render(); return; }
+    }
+    S.msel=new Set(S.ticks[id]||[]);
+    S.page='tick';
+    toast('Chào '+(m.displayName||'')+' 🌸');
+    writeLastLogin(id, m.username, m.displayName, 'member', signInData?.session?.access_token);
+    render();
+    window.scrollTo({top:0});
+  } catch(e){
+    toast('Lỗi: '+e.message,'er');
+    if(btn){btn.disabled=false;btn.innerHTML='🌸 Xem hoa';}
+  }
+};
+
 window.setLoginTab=function(t){S.loginTab=t;render();};
 export function renderLogin(){
   return `<div class="login-wrap">

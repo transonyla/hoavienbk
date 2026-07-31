@@ -1,5 +1,5 @@
 import { CREATE_USER_URL, UPDATE_PASSWORD_URL, col, sb } from './01-config.js';
-import { S, clearSession, isAdmin, isLeader, myClanId, myClanName } from './02-state.js';
+import { S, clearSession, isAdmin, isLeader, myClanId, myClanName, shareToken } from './02-state.js';
 import { checkHyperPaused, fsDel, fsSet } from './04-api.js';
 import { closeModal, esc, openModal, setPulse, toast } from './05-ui-helpers.js';
 import { render } from './06-render.js';
@@ -71,7 +71,7 @@ export function buildMmResult(){
       <td><strong>${esc(m.displayName)}</strong>${m.alias?`<span style="font-size:.74rem;color:var(--mist);margin-left:6px">${esc(m.alias)}</span>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
       <td>${clan?`<span class="clan-tag">🏅 ${esc(clan.name)}</span>`:'<span style="color:var(--haze)">—</span>'}</td>
       <td style="font-size:.78rem;color:var(--mist)">${(S.ticks[m.id]||[]).length} hoa</td>
-      <td style="white-space:nowrap"><button class="ibtn" onclick="openEditAccount('member','${m.id}')">✏️</button> <button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
+      <td style="white-space:nowrap"><button class="ibtn" onclick="copyShareLink('${m.id}')" title="Copy link chia sẻ">🔗</button> <button class="ibtn" onclick="openEditAccount('member','${m.id}')">✏️</button> <button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
     </tr>`;
   }).join('');
   return filtered.length===0?`<div class="empty"><div class="empty-icon">👤</div>Không tìm thấy thành viên nào</div>`
@@ -168,7 +168,7 @@ export function manageClanMembers(){
     <td style="font-size:.78rem;color:var(--mist)">${m.year||'—'}</td>
     <td style="font-size:.78rem;color:var(--mist)">${(S.ticks[m.id]||[]).length} hoa</td>
     <td style="font-size:.78rem"><code style="background:var(--sage);padding:2px 6px;border-radius:6px;user-select:all">${esc(m.password||'—')}</code></td>
-    <td style="white-space:nowrap"><button class="ibtn" onclick="openEditMemberLeader('${m.id}')">✏️</button> <button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
+    <td style="white-space:nowrap"><button class="ibtn" onclick="copyShareLink('${m.id}')" title="Copy link chia sẻ">🔗</button> <button class="ibtn" onclick="openEditMemberLeader('${m.id}')">✏️</button> <button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
   </tr>`).join('');
   const noteHtml=`<div class="card" style="margin-bottom:14px;border:1.5px solid #f59e0b;background:#fffbeb">
     <div style="display:flex;align-items:flex-start;gap:10px">
@@ -363,5 +363,25 @@ window.doDelMember=async function(id){
   } catch(e){toast('Lỗi: '+e.message,'er');}
   setPulse('');
   render();
+};
+
+// ── SHARE LINK: copy link "xem list hoa" của 1 thành viên (Admin + Leader dùng chung) ──
+// Người nhận link chỉ cần đúng mật khẩu của thành viên đó (không cần biết username) để
+// vào thẳng tab Đánh dấu và xem hoa đã tick.
+window.copyShareLink=async function(memberId){
+  const token=shareToken(memberId);
+  const url=`${location.origin}${location.pathname}#share=${encodeURIComponent(memberId)}:${encodeURIComponent(token)}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Đã copy link chia sẻ 🔗');
+  } catch(e){
+    // Fallback cho trình duyệt/webview không hỗ trợ Clipboard API
+    const ta=document.createElement('textarea');
+    ta.value=url; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Đã copy link chia sẻ 🔗'); }
+    catch(e2){ toast('Không copy được, link: '+url,'er'); }
+    document.body.removeChild(ta);
+  }
 };
 

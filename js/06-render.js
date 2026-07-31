@@ -1,7 +1,7 @@
 import { S, isAdmin, isLeader, isMember } from './02-state.js';
 import { activateImageCache } from './03-image-cache.js';
 import { esc, openModal, warmUpGPULayers } from './05-ui-helpers.js';
-import { renderLogin } from './07-page-login.js';
+import { renderLogin, renderShareLogin } from './07-page-login.js';
 import { pageFlowers } from './08-page-flowers.js';
 import { pageTick } from './09-page-tick.js';
 import { pageMembers } from './10-page-members.js';
@@ -18,7 +18,13 @@ export function render(){
   renderAnnouncement();
   if(!S.loaded){app.innerHTML='<div class="loading"><div class="sp"></div> Đang tải...</div>';return;}
   if(S.err){app.innerHTML=renderErr();return;}
+  // Link chia sẻ: chưa login đúng thành viên được chia sẻ → chỉ hỏi mật khẩu, không hiện login thường
+  if(S.shareMemberId && (!S.session || S.session.id!==S.shareMemberId)){
+    app.innerHTML=renderShareLogin();return;
+  }
   if(!S.session){app.innerHTML=renderLogin();return;}
+  // Vừa vào đúng bằng link chia sẻ (hoặc đã sẵn session của đúng người) → luôn mở thẳng tab Đánh dấu
+  if(S.shareMemberId && S.session.id===S.shareMemberId && S.page!=='tick'){ S.page='tick'; }
   app.innerHTML=renderNav()+`<div class="page-fade">${renderPage()}</div>`;
   const sb2=document.getElementById('savebar');
   if(S.page==='tick'&&(isMember()||isLeader())){
@@ -73,7 +79,7 @@ function initNavScroll(){
 function renderBarUser(){
   const area=document.getElementById('bar-user-area');
   const guideArea=document.getElementById('bar-guide-area');
-  if(!S.session){
+  if(!S.session || (S.shareMemberId && S.session.id!==S.shareMemberId)){
     if(area) area.innerHTML='';
     if(guideArea) guideArea.innerHTML='';
     return;

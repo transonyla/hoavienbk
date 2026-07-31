@@ -8,6 +8,19 @@
 // ============================================================
 import { CK_SESSION, CK_CACHE_TS, CK_DATA } from './01-config.js';
 
+// ─── SHARE LINK TOKEN ────────────────────────────────────────────────────────
+// Link chia sẻ "list hoa" phải mang đúng "chữ ký" được tạo ra khi bấm 🔗 trong
+// trang quản lý — nếu ai đó tự gõ/sửa id thủ công trên URL mà không có đúng
+// token đi kèm, link bị coi là KHÔNG HỢP LỆ ngay từ đầu (chưa cho nhập mật khẩu).
+// Đây không phải mã hoá bảo mật cấp cao, chỉ là lớp chặn "gõ tay id" đơn giản.
+const SHARE_SALT = 'hv5-share-v1-🌺';
+export function shareToken(memberId){
+  let h = 0;
+  const s = memberId + SHARE_SALT;
+  for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
+  return (h>>>0).toString(36);
+}
+
 // ─── SWR DATA CACHE helpers (cache 5 phút vào localStorage) ─────────────────
 export const SWR_FIELDS = ['flowers','clans','leaders','members','ticks','rentals','trials','lastLogins','announcement'];
 
@@ -54,6 +67,8 @@ export let S = {
   loginTab: 'member',
   _editFlowerId:null, _editColor:'trang',
   proxyMemberId: null,
+  shareMemberId: null, // Nếu vào app qua link chia sẻ "#share=<id>:<token>" → id thành viên cần xem
+  shareLinkValid: false, // Token trong URL có khớp với id không (chống tự chế link)
   _lastTickSubject: null,
   _tickSecOpen: {marked:false, unmarked:true},
   _tickMarkedSnapshot: new Set(),
@@ -63,6 +78,18 @@ export let S = {
 try {
   const raw = localStorage.getItem(CK_SESSION);
   if(raw) S.session = JSON.parse(raw);
+} catch(e){}
+
+// Đọc link chia sẻ "#share=<memberId>:<token>" ngay khi app khởi động (nếu có).
+// Link chỉ hợp lệ nếu token khớp đúng với id — link tự gõ/sửa tay sẽ bị đánh dấu invalid.
+try {
+  const m = location.hash.match(/^#share=([^:]+):(.+)$/);
+  if(m){
+    const mid = decodeURIComponent(m[1]);
+    const tok = decodeURIComponent(m[2]);
+    S.shareMemberId = mid;
+    S.shareLinkValid = (tok === shareToken(mid));
+  }
 } catch(e){}
 
 // ─── SESSION HELPERS ─────────────────────────────────────────────────────────
