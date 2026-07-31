@@ -19,23 +19,40 @@ function cardRentalTrialStatus(){
   let text, icon, borderColor, bgColor;
   if(rental){
     const end = calcEndDate(rental.startDate, rental.months);
-    text = `Hội <b>${clanName}</b> đã kích hoạt <b>${rental.months} tháng</b> từ ngày ${formatDate(rental.startDate)} đến ngày ${formatDate(end)}`;
+    text = `Hội <b>${clanName}</b> còn hạn đến <b>${formatDate(end)}</b> (${rental.months} tháng)`;
     icon='🏠'; borderColor='#16a34a'; bgColor='#f0fdf4';
   } else if(trial){
     const end = calcTrialEndDate(trial.startDate);
-    text = `Hội <b>${clanName}</b> dùng thử đến ngày ${formatDate(end)}`;
+    text = `Hội <b>${clanName}</b> dùng thử đến <b>${formatDate(end)}</b>`;
     icon='⏳'; borderColor='#0ea5e9'; bgColor='#f0f9ff';
   } else {
     text = `Hội <b>${clanName}</b> đã kích hoạt vĩnh viễn`;
     icon='♾️'; borderColor='#8b5cf6'; bgColor='#f5f3ff';
   }
-  return `<div class="card" style="margin-bottom:14px;border:1.5px solid ${borderColor};background:${bgColor}">
-    <div style="display:flex;align-items:center;gap:10px;font-size:.82rem;line-height:1.6">
-      <span style="font-size:1.3rem;flex-shrink:0">${icon}</span>
-      <div>${text}</div>
-    </div>
+  // Có thể ẩn tạm — nhớ trạng thái theo ngày (localStorage), tự hiện lại vào ngày hôm sau
+  // để leader không quên mất hạn hội nếu để lâu không xem.
+  const dismissKey='hv_rentalcard_dismiss_'+clanId;
+  let dismissedToday=false;
+  try { dismissedToday = localStorage.getItem(dismissKey)===new Date().toDateString(); } catch(e){}
+  if(dismissedToday){
+    return `<div id="rental-status-mini" style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:${borderColor};margin-bottom:10px;cursor:pointer" onclick="showRentalCard()">
+      <span>${icon}</span><span style="text-decoration:underline dotted">Xem trạng thái hội</span>
+    </div>`;
+  }
+  return `<div id="rental-status-card" style="display:flex;align-items:center;gap:8px;font-size:.78rem;line-height:1.5;border:1.3px solid ${borderColor};background:${bgColor};border-radius:10px;padding:8px 10px;margin-bottom:10px">
+    <span style="font-size:1.05rem;flex-shrink:0">${icon}</span>
+    <div style="flex:1">${text}</div>
+    <button type="button" onclick="dismissRentalCard('${clanId}')" title="Ẩn" style="background:none;border:none;color:${borderColor};opacity:.6;font-size:.9rem;cursor:pointer;padding:2px 4px;flex-shrink:0">✕</button>
   </div>`;
 }
+window.dismissRentalCard=function(clanId){
+  try { localStorage.setItem('hv_rentalcard_dismiss_'+clanId, new Date().toDateString()); } catch(e){}
+  render();
+};
+window.showRentalCard=function(clanId){
+  try { localStorage.removeItem('hv_rentalcard_dismiss_'+myClanId()); } catch(e){}
+  render();
+};
 
 // ── ALL MEMBERS (ADMIN) ───────────────────────────────────────────────────────
 export function manageAllMembers(){
@@ -71,7 +88,7 @@ export function buildMmResult(){
       <td><strong>${esc(m.displayName)}</strong>${m.alias?`<span style="font-size:.74rem;color:var(--mist);margin-left:6px">${esc(m.alias)}</span>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
       <td>${clan?`<span class="clan-tag">🏅 ${esc(clan.name)}</span>`:'<span style="color:var(--haze)">—</span>'}</td>
       <td style="font-size:.78rem;color:var(--mist)">${(S.ticks[m.id]||[]).length} hoa</td>
-      <td style="white-space:nowrap"><button class="ibtn" onclick="copyShareLink('${m.id}')" title="Copy link chia sẻ">🔗</button> <button class="ibtn" onclick="openEditAccount('member','${m.id}')">✏️</button> <button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
+      <td style="white-space:nowrap"><button class="ibtn" onclick="copyShareLink('${m.id}')" title="Copy link chia sẻ cho ${esc(m.displayName)}">🔗</button> <button class="ibtn" onclick="openEditAccount('member','${m.id}')" title="Sửa thông tin ${esc(m.displayName)}" style="margin:0 4px">✏️</button> <button class="ibtn del" onclick="confirmDelMember('${m.id}')" title="Xoá ${esc(m.displayName)} (không hoàn tác)">🗑️</button></td>
     </tr>`;
   }).join('');
   return filtered.length===0?`<div class="empty"><div class="empty-icon">👤</div>Không tìm thấy thành viên nào</div>`
@@ -158,6 +175,37 @@ window.doEditAccount=async function(type, id){
   setPulse('');
 };
 
+// ── Tooltip nhỏ cho các nút hành động (🔗 ✏️ 🗑️) — hiện khi hover (chuột) hoặc
+// chạm (mobile). Hover dùng CSS thuần; chạm dùng JS toggle class vì :hover
+// không đáng tin cậy trên touch. Style chỉ inject 1 lần vào <head>.
+if(typeof document!=='undefined' && !document.getElementById('ibtn-label-style')){
+  const st=document.createElement('style');
+  st.id='ibtn-label-style';
+  st.textContent=`
+    .ibtn-label{
+      position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+      background:#1f2937;color:#fff;font-size:.66rem;line-height:1;white-space:nowrap;
+      padding:4px 7px;border-radius:6px;pointer-events:none;opacity:0;
+      transition:opacity .12s ease;z-index:20;
+    }
+    .ibtn-label::after{
+      content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+      border:4px solid transparent;border-top-color:#1f2937;
+    }
+    .ibtn-wrap:hover .ibtn-label,
+    .ibtn-wrap.show-label .ibtn-label{opacity:1}
+  `;
+  document.head.appendChild(st);
+}
+window._ibtnTouchTimer=null;
+window.handleIbtnTouch=function(wrapEl){
+  if(!wrapEl) return;
+  document.querySelectorAll('.ibtn-wrap.show-label').forEach(el=>{ if(el!==wrapEl) el.classList.remove('show-label'); });
+  wrapEl.classList.add('show-label');
+  clearTimeout(window._ibtnTouchTimer);
+  window._ibtnTouchTimer=setTimeout(()=>wrapEl.classList.remove('show-label'),1400);
+};
+
 // ── CLAN MEMBERS (LEADER) ─────────────────────────────────────────────────────
 export function manageClanMembers(){
   const clanId=myClanId();
@@ -165,29 +213,59 @@ export function manageClanMembers(){
   const myMembers=S.members.filter(m=>m.clanId===clanId);
   const rows=myMembers.map(m=>`<tr>
     <td><strong>${esc(m.displayName)}</strong>${m.isDeputy?`<span style="font-size:.68rem;font-weight:700;background:#ede9fe;color:var(--clan);padding:1px 7px;border-radius:99px;margin-left:6px">🎖️ Hội phó</span>`:''}${m.alias?`<span style="font-size:.74rem;color:var(--mist);margin-left:6px">${esc(m.alias)}</span>`:''}<div style="font-size:.72rem;color:var(--haze)">@${esc(m.username)}</div></td>
-    <td style="font-size:.78rem;color:var(--mist)">${m.year||'—'}</td>
-    <td style="font-size:.78rem;color:var(--mist)">${(S.ticks[m.id]||[]).length} hoa</td>
-    <td style="font-size:.78rem"><code style="background:var(--sage);padding:2px 6px;border-radius:6px;user-select:all">${esc(m.password||'—')}</code></td>
-    <td style="white-space:nowrap"><button class="ibtn" onclick="copyShareLink('${m.id}')" title="Copy link chia sẻ">🔗</button> <button class="ibtn" onclick="openEditMemberLeader('${m.id}')">✏️</button> <button class="ibtn del" onclick="confirmDelMember('${m.id}')">🗑️</button></td>
+    <td style="white-space:nowrap">
+      <span class="ibtn-wrap" ontouchstart="handleIbtnTouch(this)" style="position:relative;display:inline-block">
+        <button class="ibtn" onclick="copyShareLink('${m.id}')" aria-label="Copy link chia sẻ cho ${esc(m.displayName)}">🔗</button>
+        <span class="ibtn-label">Copy link</span>
+      </span>
+      <span class="ibtn-wrap" ontouchstart="handleIbtnTouch(this)" style="position:relative;display:inline-block;margin:0 4px">
+        <button class="ibtn" onclick="openEditMemberLeader('${m.id}')" aria-label="Sửa thông tin ${esc(m.displayName)}">✏️</button>
+        <span class="ibtn-label">Sửa</span>
+      </span>
+      <span class="ibtn-wrap" ontouchstart="handleIbtnTouch(this)" style="position:relative;display:inline-block">
+        <button class="ibtn del" onclick="confirmDelMember('${m.id}')" aria-label="Xoá ${esc(m.displayName)} (không hoàn tác)">🗑️</button>
+        <span class="ibtn-label">Xoá</span>
+      </span>
+    </td>
   </tr>`).join('');
-  const noteHtml=`<div class="card" style="margin-bottom:14px;border:1.5px solid #f59e0b;background:#fffbeb">
-    <div style="display:flex;align-items:flex-start;gap:10px">
-      <span style="font-size:1.4rem;flex-shrink:0">⚠️</span>
-      <div style="font-size:.8rem;color:#92400e;line-height:1.65">
-        <div style="font-weight:800;margin-bottom:4px;font-size:.84rem">Lưu ý quan trọng khi tạo Username / Mật khẩu cho thành viên!</div>
-        Hội trưởng cần <strong>nhớ và nhập đúng chính xác</strong> Username và Mật khẩu (bao gồm cả <strong>chữ HOA / chữ thường</strong>) để thành viên đăng nhập đúng. Tuyệt đối <strong>không dùng ký tự đặc biệt</strong> (@ # $ % &amp; * ! ...), <strong>không dấu tiếng Việt</strong> và <strong>không có khoảng trắng</strong> trong Username/Mật khẩu — chỉ nên dùng chữ cái không dấu (a-z, A-Z) và số (0-9).
+  // Khối cảnh báo dài dòng gây rối màn hình đầu — thu gọn thành 1 dòng, bấm vào
+  // mới bung chi tiết đầy đủ. Nhớ "đã đọc" qua localStorage để lần sau không
+  // che mất bảng thành viên ngay từ đầu (chỉ hiện lại nếu bấm ✏️/"+ Thêm TV").
+  let noteExpanded = S._noteExpanded;
+  if(noteExpanded===undefined){
+    let seen=false;
+    try { seen = localStorage.getItem('hv_note_username_seen')==='1'; } catch(e){}
+    noteExpanded = !seen;
+    S._noteExpanded = noteExpanded;
+  }
+  const noteHtml = noteExpanded
+    ? `<div class="card" style="margin-bottom:10px;border:1.5px solid #f59e0b;background:#fffbeb;cursor:pointer" onclick="toggleUserNote(false)">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:1.3rem;flex-shrink:0">⚠️</span>
+        <div style="font-size:.79rem;color:#92400e;line-height:1.6;flex:1">
+          <div style="font-weight:800;margin-bottom:4px;font-size:.83rem">Lưu ý khi tạo Username / Mật khẩu</div>
+          Nhập <strong>đúng chữ HOA/thường</strong>, <strong>không</strong> ký tự đặc biệt, dấu tiếng Việt hay khoảng trắng — chỉ dùng chữ cái không dấu (a-z, A-Z) và số (0-9).
+        </div>
+        <span style="font-size:.7rem;color:#92400e;opacity:.6;flex-shrink:0">✕ ẩn</span>
       </div>
-    </div>
-  </div>`;
+    </div>`
+    : `<div style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#92400e;margin-bottom:10px;cursor:pointer" onclick="toggleUserNote(true)">
+      <span>⚠️</span><span style="text-decoration:underline dotted">Lưu ý khi đặt Username/Mật khẩu — bấm để xem lại</span>
+    </div>`;
   return cardRentalTrialStatus()+noteHtml+`<div class="card">
     <div class="card-title">👥 Thành viên Hội ${esc(clanName)} <span style="font-size:.76rem;font-weight:600;color:var(--mist)">(${myMembers.length})</span>
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openAddMember()">+ Thêm TV</button>
     </div>
     ${myMembers.length===0?`<div class="empty"><div class="empty-icon">👤</div>Chưa có thành viên</div>`
-    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên</th><th>Năm sinh</th><th>Hoa</th><th>Mật khẩu</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
+    :`<div style="overflow-x:auto"><table class="mtbl"><thead><tr><th>Tên</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`}
   </div>`;
 }
 
+window.toggleUserNote=function(expand){
+  S._noteExpanded=expand;
+  if(!expand){ try { localStorage.setItem('hv_note_username_seen','1'); } catch(e){} }
+  render();
+};
 window.openAddMember=function(){
   // If leader: auto-assign to their clan. If admin: can pick clan.
   const clanSelect = isAdmin()
