@@ -21,6 +21,16 @@ export function pageSettings(){
       <button class="btn btn-g btn-sm" onclick="retry()">🔄 Tải lại dữ liệu</button>
     </div>
   </div>
+  <div class="card" style="margin-bottom:14px;border-left:3px solid #6366f1">
+    <div class="card-title">📈 Thống kê truy cập (GoatCounter)</div>
+    <p style="font-size:.8rem;color:var(--mist);margin-bottom:12px">Theo dõi lượt truy cập web (kể cả F5), cập nhật theo thời gian thực.</p>
+    <div style="border-radius:10px;overflow:hidden;border:1.5px solid #e0e7ff">
+      <iframe src="https://qlhoavien.goatcounter.com" style="width:100%;height:420px;border:none;display:block" loading="lazy"></iframe>
+    </div>
+    <div style="margin-top:10px">
+      <a href="https://qlhoavien.goatcounter.com" target="_blank" rel="noopener" class="btn btn-g btn-sm" style="text-decoration:none;display:inline-block">🔗 Mở dashboard đầy đủ</a>
+    </div>
+  </div>
   <div class="card" style="margin-bottom:14px">
     <div class="card-title">🔑 Thay đổi mật khẩu Admin</div>
     <p style="font-size:.82rem;color:var(--mist);margin-bottom:12px">Mật khẩu admin được mã hóa SHA-256 và lưu trong code. Liên hệ developer để thay đổi.</p>
